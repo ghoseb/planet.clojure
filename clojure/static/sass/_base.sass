@@ -1,0 +1,145 @@
+//
+    Brajeshwar
+    http://brajeshwar.com
+    -
+    Edited
+    05:18 PM - 24 Nov, 2009
+    09:59 AM - 01 Dec, 2009
+    11:35 AM - 13 Dec, 2009
+    01:13 PM - 25 Dec, 2009
+    -
+    Note:
+    ~ 4 Tabs (treated with soft tabs)
+    ----------------------------------------------
+
+@import compass/utilities.sass
+@import oinam/colors.sass
+
+// Susy
+
+// 
+    GRID
+    un-comment and override these values as needed for your grid layout 
+    (defaults are shown)
+
+!grid_unit = "px"
+!total_cols = 12
+!col_width = 70
+!gutter_width = 10
+!side_gutter_width = !gutter_width
+
+//
+    OMEGA_FLOAT
+    By default, +omega elements are floated right.
+    You can override that globally here:
+
+!omega_float = "right"
+
+//
+    HACKS
+    Are you using hacks or conditional comments? Susy makes both possible.
+    Leave this as 'true' to use hacks, set it as false for conditional comments.
+    Conditional comments will require overrides for +omega, +inline-block and
+    several other mixins.
+
+!hacks = true
+
+//
+    FONT-SIZE
+    un-comment and override these values as needed (defaults are shown)
+    - you set the font and line heights in pixels.
+    - Susy will do the math and give you !base_font_size and !base_line_height 
+    variables, set flexibly against the common browser default of 16px
+
+!base_font_size_px = 13
+!base_line_height_px = 20
+
+//
+    Susy can do the math to make that relative
+    we call base_font_size function (even though we could do the math here)
+    because Susy needs to "remember" our base_font_size_px for px2em()
+
+!base_font_size = base_font_size(!base_font_size_px) + "%"
+!base_line_height = (!base_line_height_px / !base_font_size_px) + "em"
+
+//  (don't move this @import above the GRID and FONT-SIZE overrides)
+
+@import susy/susy.sass
+
+// FONTS
+// Give yourself some font stacks to work with
+
+=font-family-sans
+    :font-family "Lucida Grande", Lucida, Helvetica, Verdana, sans-serif
+
+=font-family-serif
+    :font-family "Adobe Caslon Pro", "Big Caslon", 'Times New Roman', Times, serif
+    
+=font-fixed-width
+    :font-family Menlo, Consolas, Monaco, Courier, monospace
+    
+// headers
+
+h1, h2, h3, h4, h5, h6
+    font-weight: bold
+    padding: 0
+    margin: 0 0 0.5em 0
+
+h1
+    font-size = (!base_line_height_px / !base_font_size_px) * 1.0 + "em"
+
+h2
+    font-size = (!base_line_height_px / !base_font_size_px) * 0.9 + "em"
+
+h3
+    font-size = (!base_line_height_px / !base_font_size_px) * 0.8 + "em"
+
+h4
+    font-size = (!base_line_height_px / !base_font_size_px) * 0.7 + "em"
+
+h5
+    font-size = (!base_line_height_px / !base_font_size_px) * 0.6 + "em"
+
+h6
+    font-size = (!base_line_height_px / !base_font_size_px) * 0.5 + "em"
+    
+//
+    Custom Mixins
+
+=bg-img(!clr, !src, !repeat, !x, !y)
+    background:
+        color = !clr
+        image = image_url(!src)
+        repeat = !repeat
+        position = !x !y
+
+/*
+    @group Base
+
+//
+    Image if scaled 100%
+    http://unstoppablerobotninja.com/entry/fluid-images/
+    -
+    IE Fix: Bicubic Scaling for Images
+    http://css-tricks.com/ie-fix-bicubic-scaling-for-images/
+
+img
+    max-width: 100%
+    -ms-interpolation-mode: bicubic
+
+body
+    +susy
+    +font-family-sans
+    color: #444
+    
+a
+    +link-colors("#555", "#03f")
+    text-decoration: underline
+    
+p
+    margin: 0 0 0.5em 0
+    
+    &:last-child
+        margin: 0
+    
+/* @end */

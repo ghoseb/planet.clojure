@@ -1,0 +1,120 @@
+/*
+    @group Clojure
+
+#planet
+    +container
+    
+#main
+    +columns(8)
+    margin: 0
+    text-align: right
+    border-right: 1px solid #eee
+    padding-right: 2em
+    
+#main-content
+    margin: 0
+    padding: 0
+    
+#header
+    margin: 2em 0
+    
+    span
+        display: none
+    
+    #title
+        display: inline-block
+        width: 160px
+        height: 26px
+        +replace-text("plantet-clojure-logo.gif", 100%, 0)
+        
+        &:focus, &:hover
+            background-position: 100% -50px            
+    
+.entry
+    +clearfix
+    
+    .aside
+        float: left
+        width: 30%
+        
+        img
+            width: 16px !important
+            height: 16px !important
+            border: 1px solid #777
+            padding: 2px
+            
+        h2
+            a
+                +link-colors("#488a0e", "#333")
+                +hover-link
+        
+        p
+            font-size: 0.86em
+            line-height: 1.25em
+            
+            a
+                text-decoration: underline
+    
+    .article
+        float: right
+        text-align: left
+        width: 67%
+        border-bottom: 1px solid #aaa
+        margin-bottom: 1.5em
+        
+        .meta
+            margin: 1em 0
+            font-size: 0.90em
+            text-transform: uppercase
+            
+            a
+                +link-colors("#03f", "#333")
+
+#sidebar
+    +columns(4)
+    +omega(true)
+    margin: 0
+
+#sidebar-content
+    margin: 1.5em
+    
+#search
+    margin: 2em 0
+    
+    .input-txt
+        +border-radius(10px)
+        border: 1px solid #999
+        background: #fff
+        color: #444
+        padding: 0.3em
+        font-size: 100%
+    
+        &:focus
+            border-color: #111
+            
+#about
+    ul
+        +no-bullets
+        
+        li
+            text-transform: uppercase
+            
+#planets-list
+    margin: 1em 0
+    
+    h3
+        text-transform: uppercase
+        font-weight: 100
+        
+    ul
+        +no-bullets
+        
+        li
+            padding: 0 2em
+            
+#footer
+    font-size: 0.80em
+    line-height: 1.5em
+    margin-bottom: 2em
+            
+/* @end */

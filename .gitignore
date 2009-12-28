@@ -1,0 +1,4 @@
+*.tmplc
+clojure/output
+.DS_Store
+.sass-cache

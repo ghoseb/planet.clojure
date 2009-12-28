@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+  <head>
+    <title><TMPL_VAR name></title>
+    <meta charset="utf-8" />
+    <meta name="generator" content="<TMPL_VAR generator ESCAPE="HTML">" />
+    <link href="#" rel="apple-touch-icon" />
+    <link rel="stylesheet" href="static/css/screen.css" media="screen, projection" />
+
+<!--[if IE]>
+<link rel="stylesheet" type="text/css" href="static/css/ie.css" media="screen, projection" />
+<script type="text/javascript" src="static/js/html5.js"></script>
+<![endif]-->
+
+    <link rel="icon" type="image/vnd.microsoft.icon" href="favicon.ico" />
+    <link rel="shortcut icon" href="favicon.ico" />
+    <TMPL_IF feedtype>
+      <link rel="alternate" href="<TMPL_VAR feed ESCAPE="HTML">" title="<TMPL_VAR channel_title_plain ESCAPE="HTML">" type="application/<TMPL_VAR feedtype>+xml">
+    </TMPL_IF>
+  </head>
+  <body>
+    <div id="planet">
+      <div id="main">
+        <div id="main-content">
+
+          <header id="header">
+            <h1><a href="" id="title"><span><TMPL_VAR name></span></a></h1>
+          </header>
+
+          <TMPL_LOOP Items>
+          <section class="entry">
+            <aside class="aside">
+              <!-- <img src="static/i/favicon.gif" alt="Name of the Site" /> -->
+              <h2><a href="<TMPL_VAR channel_link ESCAPE="HTML">" title="<TMPL_VAR channel_title_plain ESCAPE="HTML">"><TMPL_VAR channel_name></a></h2>
+              <p>
+                <TMPL_VAR date>
+                <br />
+                <a href="">Feed URL</a>
+              </p>
+            </aside>
+            <article class="article">
+              <h2><a href="<TMPL_VAR link ESCAPE="HTML">"><TMPL_VAR title></a></h2>
+              <p>
+                <TMPL_VAR content>
+              </p>
+              <p class="meta"><a href="<TMPL_VAR link ESCAPE="HTML">">Permalink</a></p>
+            </article>
+          </section>
+          </TMPL_LOOP>
+          
+          <footer id="footer">
+            <p>
+              Copyright &copy; 2009, Planet Clojure. No rights reserved.
+              <br />
+              Planet Clojure is maintained by <a href="http://freegeek.in/">Baishamapayan Ghose</a>.
+              <br />
+              Theme by <a href="http://brajeshwar.com/">Brajeshwar</a>.
+            </p>
+          </footer>
+
+        </div>
+      </div>
+
+      <div id="sidebar">
+        <div id="sidebar-content">
+          <section id="search">
+            <form>
+              <input type="text" class="input-txt" />
+              <button type="submit">Search</button>
+            </form>
+          </section>
+
+          <!-- <section id="about"> -->
+          <!--   <ul> -->
+          <!--     <li><a href="">About</a></li> -->
+          <!--     <li><a href="">Contact</a></li> -->
+          <!--   </ul> -->
+          <!-- </section> -->
+          
+          <section class="sidebar-list">
+            <h3>Subscriptions</h3>
+            <ul>
+              <TMPL_LOOP Channels>
+                <li>
+                  <a <TMPL_IF link>href="<TMPL_VAR link ESCAPE="HTML">" </TMPL_IF><TMPL_IF message>class="message" title="<TMPL_VAR message ESCAPE="HTML">"</TMPL_IF><TMPL_UNLESS message>title="<TMPL_VAR title_plain ESCAPE="HTML">"</TMPL_UNLESS>><TMPL_VAR name></a>
+                </li>
+              </TMPL_LOOP>
+            </ul>
+          </section>
+          
+          <section class="sidebar-list">
+            <h3>Planetarium</h3>
+            <ul>
+              <li><a href="http://planet.lisp.org/">Planet Lisp</a></li>
+              <li><a href="http://www.planetscala.com/">Planet Scala</a></li>
+              <li><a href="http://scheme.dk/planet/">Planet Scheme</a></li>
+              <li><a href="http://planetjdk.org/">Planet JDK</a></li>
+              <li><a href="http://planet.haskell.org/">Planet Haskell</a></li>
+              <li><a href="http://www.planeterlang.org/">Planet Erlang</a></li>
+              <li><a href="http://planet.python.org/">Planet Python</a></li>
+              <li><a href="http://planetruby.0x42.net/">Planet Ruby</a></li>
+            </ul>
+          </section>
+          
+          <section class="sidebar-list">
+            <h3>Syndicate</h3>
+            <ul>
+              <li><a href="atom.xml">Atom</a></li>
+              <li><a href="opml.xml">OPML</a></li>
+              <li><a href="foafroll.xml">FOAF</a></li>
+            </ul>
+          </section>
+          
+          <section class="sidebar-list">
+            <h3>Contact</h3>
+            <ul>
+              <li>Do you blog about Clojure? Planet Clojure needs you. Contact: b.ghose at gmail.com</li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

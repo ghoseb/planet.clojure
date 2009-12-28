@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<opml version="1.1">
+	<head>
+		<title>Planet Schmanet</title>
+		<dateModified>Mon, 28 Dec 2009 07:47:41 +0000</dateModified>
+		<ownerName>Janet Weiss</ownerName>
+		<ownerEmail>janet@slut.sex</ownerEmail>
+	</head>
+	
+	<body>
+		<outline type="rss" text="Edd Dumbill" xmlUrl="http://times.usefulinc.com/rss" title="Edd Dumbill's Weblog: Behind the Times" />
+		<outline type="rss" text="Jeff Waugh" xmlUrl="http://www.gnome.org/~jdub/blog/?flav=rss" title="Jeff Waugh" />
+		<outline type="rss" text="Scott James Remnant" xmlUrl="http://www.netsplit.com/feed/" title="Scott James Remnant" />
+		<outline type="rss" text="Thom May" xmlUrl="http://blog.clearairturbulence.org/?flav=rss" title="Thom May" />
+	</body>
+</opml>
