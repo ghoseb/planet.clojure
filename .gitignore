@@ -4,3 +4,4 @@ clojure/cache
 .DS_Store
 .sass-cache
 *.pyc
+planet/*.pyc
