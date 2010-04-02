@@ -23,6 +23,9 @@ add your blog feed URL and your name in the following format -
 After you are done, commit the change to your repository and send me a
 pull request. I will be happy to add you to Planet Clojure.
 
+Note: Please add the feed which contains only those posts which are 
+Clojure/Lisp related. As a policy we do not put generic feeds on Planet 
+Clojure. 
 
 Reporting Bugs
 --------------
