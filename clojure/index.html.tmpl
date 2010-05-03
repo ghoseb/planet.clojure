@@ -14,9 +14,7 @@
 
     <link rel="icon" type="image/vnd.microsoft.icon" href="static/i/favicon.gif" />
     <link rel="shortcut icon" href="static/i/favicon.gif" />
-    <TMPL_IF feedtype>
-      <link rel="alternate" href="<TMPL_VAR feed ESCAPE="HTML">" title="<TMPL_VAR channel_title_plain ESCAPE="HTML">" type="application/<TMPL_VAR feedtype>+xml">
-    </TMPL_IF>
+    <link rel="alternate" href="http://feeds.feedburner.com/clojure" type="application/rss+xml" title="Planet Clojure RSS Feed" />
   </head>
   <body>
     <div id="planet">
@@ -109,7 +107,7 @@
           <section class="sidebar-list">
             <h3>Syndicate</h3>
             <ul>
-              <li><a href="atom.xml">Atom</a></li>
+              <li><a href="http://feeds.feedburner.com/clojure">RSS</a></li>
               <li><a href="opml.xml">OPML</a></li>
               <li><a href="foafroll.xml">FOAF</a></li>
             </ul>
