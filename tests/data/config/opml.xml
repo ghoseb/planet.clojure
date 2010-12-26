@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<opml version="1.1">
+  <head>
+    <title>test planet</title>
+    <dateModified>October 14, 2006 01:02 PM</dateModified>
+    <ownerName>Anonymous Coward</ownerName>
+    <ownerEmail></ownerEmail>
+  </head>
+  <body>
+    <outline type="rss" text="not found" title="" xmlUrl="tests/data/spider/testfeed0.atom"/>
+    <outline type="rss" text="two" title="Sam Ruby" xmlUrl="http://intertwingly.net/code/venus/tests/data/spider/testfeed2.atom"/>
+    <outline type="rss" text="three" title="Sam Ruby" xmlUrl="tests/data/spider/testfeed3.rss"/>
+    <outline type="rss" text="one" title="Sam Ruby" xmlUrl="http://intertwingly.net/code/venus/tests/data/spider/testfeed1a.atom"/>
+  </body>
+</opml>

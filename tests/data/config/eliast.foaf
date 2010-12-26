@@ -1,0 +1,55 @@
+<rdf:RDF
+      xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+      xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+      xmlns:dc="http://purl.org/dc/elements/1.1/"
+      xmlns:doap="http://usefulinc.com/ns/doap#"
+      xmlns:ical="http://www.w3.org/2002/12/cal/icaltzd#"
+      xmlns:rss="http://purl.org/rss/1.0/"
+      xmlns:foaf="http://xmlns.com/foaf/0.1/">
+<foaf:PersonalProfileDocument rdf:about="http://torrez.us/who">
+	<foaf:maker rdf:resource="http://torrez.us/who#elias"/>
+	<foaf:primaryTopic rdf:resource="http://torrez.us/who#elias"/>
+</foaf:PersonalProfileDocument>
+<foaf:Person rdf:about="http://torrez.us/who#elias">
+	<foaf:name>Elias Torres</foaf:name>
+	
+	<foaf:knows>
+		<foaf:Person rdf:about="http://thefigtrees.net/lee/ldf-card#LDF"> 
+			<foaf:name>Lee Feigenbaum</foaf:name>
+			<foaf:homepage rdf:resource="http://thefigtrees.net/"/>
+			<foaf:mbox_sha1sum>15b51eca0082d66bee850ce4774ff2d9921c1f08</foaf:mbox_sha1sum>
+			<rdfs:seeAlso rdf:resource="tests/data/config/ldf-card.foaf"/>
+		</foaf:Person>
+	</foaf:knows>
+	<foaf:knows>
+		<foaf:Person>
+			<foaf:name>Sam Ruby</foaf:name>
+			<foaf:mbox_sha1sum>703471c6f39094d88665d24ce72c42fdc5f20585</foaf:mbox_sha1sum>
+			<rdfs:seeAlso rdf:resource="tests/data/config/rubys-card.foaf"/>
+		</foaf:Person>
+	</foaf:knows>
+
+    <foaf:weblog>
+        <foaf:Document rdf:about="http://torrez.us/">
+            <dc:title>Elias Torres</dc:title>
+            <rdfs:seeAlso>
+                <rss:channel rdf:about="http://torrez.us/feed/rdf" />
+            </rdfs:seeAlso>
+        </foaf:Document>
+    </foaf:weblog>
+
+    <foaf:holdsAccount>
+        <foaf:OnlineAccount>
+              <foaf:accountServiceHomepage rdf:resource="http://del.icio.us/"/>
+              <foaf:accountName>eliast</foaf:accountName>
+        </foaf:OnlineAccount>
+    </foaf:holdsAccount>
+    <foaf:holdsAccount>
+        <foaf:OnlineAccount>
+              <foaf:accountServiceHomepage rdf:resource="http://flickr.com/"/>
+              <foaf:accountName>77366516@N00</foaf:accountName>
+        </foaf:OnlineAccount>
+    </foaf:holdsAccount>
+
+</foaf:Person>
+</rdf:RDF>

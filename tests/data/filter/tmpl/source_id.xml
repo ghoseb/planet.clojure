@@ -1,0 +1,16 @@
+<!--
+Description:  source id
+Expect:       Channels[0]['id'] == 'http://example.com/' and Items[0]['channel_id'] == 'http://example.com/'
+-->
+
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <source>
+      <id>http://example.com/</id>
+    </source>
+  </entry>
+  <planet:source xmlns:planet='http://planet.intertwingly.net/'>
+    <id>http://example.com/</id>
+  </planet:source>
+</feed>
+

@@ -1,0 +1,538 @@
+/*
+ * Originally written by Stefano Mazzocchi <stefano at apache dot org>
+ * Adapted by Sam Ruby <rubys at intertwingly dot net>
+ */
+
+/* ----------------------------- Global Definitions -------------------- */
+
+body {
+	margin: 0px;
+	padding: 0px;
+	color: #222;
+	background-color: #fff;
+	quotes: "\201C" "\201E" "\2018" "\2019";
+}
+
+a:link {
+	color: #222;
+}
+
+a:visited {
+	color: #555;
+}
+
+a:hover {
+	color: #000;
+}
+
+a:active {
+}
+
+a:focus {
+}
+
+a.inactive {
+	color: #558;
+}
+
+a.rising {
+	font-weight: bold;
+}
+
+a[rel~='license'] {
+    text-decoration: none;
+}
+
+body > h1 {
+	font-size: x-large;
+	text-transform: uppercase;
+	letter-spacing: 0.25em;
+	padding: 10px;
+	margin: 0px 0px 0px 0px;
+	color: #889;
+	font-family: Sans-Serif;
+	font-weight: bold;
+	font-style: italic;
+	background-color: #eee;
+	border-bottom: 2px solid #ccd;
+}
+
+/* ----------------------------- Sidebar --------------------------- */
+
+#sidebar {
+	float: right;
+	top: 150px;
+	right: 0px;
+	width: 210px;
+	background-color: white;
+
+	padding: 0px 0px 10px 0px;
+	margin: 0px 0px 20px 20px;
+	border-left: 2px solid #ccd;
+	border-bottom: 2px solid #ccd;
+	-webkit-border-bottom-left-radius: 1em;
+	-moz-border-radius: 0 0 0 1em;
+	border-radius: 0 0 0 1em;
+}
+
+#sidebar h2 {
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+	font-size: x-small;
+	color: #666;
+	font-weight: normal;
+	padding: 2px 0px 2px 12px;
+	margin: 15px 0px 5px 10px;
+	border-top: 1px solid #ccc;
+	border-left: 1px solid #ccc;
+	border-bottom: 1px solid #ccc;
+	-webkit-border-top-left-radius: 6px;
+	-webkit-border-bottom-left-radius: 6px;
+	-moz-border-radius: 6px 0 0 6px;
+	border-radius: 6px 0 0 6px;
+}
+
+#sidebar h2 a img {
+	margin-bottom: 4px;
+	vertical-align: middle;
+}
+
+#sidebar p {
+	font-size: x-small;
+	padding-left: 20px;
+	padding-right: 5px;
+}
+
+#sidebar ul {
+	font-family: sans-serif;
+	margin-left: 5px;
+	padding-left: 25px;
+}
+
+#sidebar li {
+	margin-left: 0px;
+	text-indent: -15px;
+	list-style-type: none;
+	font-size: x-small;
+}
+
+#sidebar ul li a {
+	text-decoration: none;
+}
+
+#sidebar ul li a:hover {
+	text-decoration: underline;
+}
+
+#sidebar ul li a:visited {
+	color: #000;
+}
+
+#sidebar ul li ul {
+	display: none;
+}
+
+#sidebar ul li {
+	position: relative;
+}
+
+#sidebar ul li:hover ul {
+	background-color: #EEE;
+	-webkit-border-radius: 0.5em;
+	-moz-border-radius: 0.5em;
+	border-radius: 0.5em;
+	border: 2px solid #BBB;
+	color:#000;
+	display: block;
+	margin-left: -300px;
+	margin-right: 115px;
+	padding: 10px;
+	padding-left: 25px;
+	position: absolute;
+	right: 80px;
+	top: -12px;
+	z-index: 1;
+}
+
+#sidebar img {
+	margin-top: 2px;
+	border: 0;
+}
+
+#sidebar dl {
+	font-size: x-small;
+	padding-left: 1.0em;
+}
+
+#sidebar dl ul {
+	padding-left: 1em;
+}
+
+#sidebar dt {
+	margin-top: 1em;
+	font-weight: bold;
+	padding-left: 1.0em;
+}
+
+#sidebar dd {
+	margin-left: 2.5em;
+}
+
+#sidebar .message {
+	cursor: help;
+	border-bottom: 1px dashed red;
+}
+
+#sidebar a.message:hover {
+	cursor: help;
+	background-color: #ffD0D0;
+	border: 1px dashed red !important;
+	text-decoration: none !important;
+}
+
+#sidebar input[name=q] {
+	padding-left: 0.5em;
+	border: 1px solid #ccd;
+	-webkit-border-radius: 0.8em;
+	-moz-border-radius: 0.8em;
+	border-radius: 0.8em;
+	width: 12.5em;
+	margin: 4px 0 0 24px;
+}
+
+/* ---------------------------- Footer --------------------------- */
+
+#footer ul {
+	margin: 0 20px 0 -25px;
+	padding: 0;
+}
+
+#footer li {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: inline;
+}
+
+#footer ul li ul {
+	display: none;
+}
+
+#footer img {
+	display: none;
+}
+
+/* ----------------------------- Body ---------------------------- */
+
+#body {
+	margin-top: 10px;
+	margin-right: 210px;
+}
+
+.admin {
+	text-align: right;
+}
+
+#body > h2 {
+	float: right;
+	min-width: 25%;
+	-webkit-border-top-left-radius: 0.5em;
+	-webkit-border-bottom-left-radius: 0.5em;
+	-moz-border-radius: 0.5em 0 0 0.5em;
+	border-radius: 0.5em 0 0 0.5em;
+	text-transform: none;
+	font-size: medium;
+	color: #667;
+	font-weight: bold;
+	text-align: center;
+	border: 2px solid #ccd;
+	background-color: #eee;
+	padding: 1px 1.5em 1px 1.5em;
+	margin: -0.2em -22px 0 0;
+}
+
+/* ----------------------------- News ---------------------------- */
+
+.news {
+	margin: 30px 10px 30px 10px;
+	clear: left;
+}
+
+.news > h3 {
+	text-indent: -10px;
+	margin: 12px;
+	padding: 0px;
+	font-size: medium;
+}
+
+.news > h3 > a:first-child {
+	margin-left: 10px
+}
+
+.news > h3 > a:first-child:before {
+	content: '⌘';
+	font-family: Code2000;
+	color: #D70;
+	margin-left: -18px;
+	margin-right: 2px;
+	text-decoration: none;
+}
+
+img.icon {
+	height: 16px;
+	width: 16px;
+	margin-left: -8px;
+	margin-bottom: -2px;
+	margin-right: 3px;
+}
+
+.news .content {
+	margin: 5px 5px 5px 15px;
+	padding: 0px 5px 0px 5px;
+	border-left: 1px solid #ccc;
+	line-height: 1.2em;
+	font-size: small;
+	font-family: sans-serif;
+}
+
+.news .links {
+}
+
+.news .permalink {
+	text-align: right;
+}
+
+/* ----------------------------- News Content ---------------------------- */
+
+.news .content p {
+	line-height: 1.2em;
+}
+
+.news .content img {
+	margin: 5px;
+}
+
+.news .content blockquote {
+	margin: 10px 35px 10px 35px;
+	padding: 5px;
+}
+
+.news .content pre {
+	font-family: monospace;
+	font-size: medium;
+	font-weight: bold;
+	border: 1px solid #ddd;
+	padding: 10px;
+	margin: 10px 20px 10px 20px;
+	background-color: #f8f8f8;
+	overflow: auto;
+}
+
+.news .content ul, .news .content ol {
+	margin: 5px 35px 5px 35px;
+	padding: 5px;
+	counter-reset: item;
+}
+
+.news .content ul > ul, .news .content ul > ol, .news .content ol > ul, .news .content ol > ol {
+	margin: 0px 0px 0px 35px;
+	padding: 0px;
+}
+
+.news .content li {
+	padding: 1px;
+	line-height: 1.2em;
+}
+
+.news code {
+	font-family: monospace;
+	font-size: medium;
+	font-weight: bold;
+}
+
+.news .content a {
+	text-decoration: none;
+	color: #000;
+	border-bottom: 1px dotted #777;
+	margin: 0px 2px 0px 2px;
+	padding: 1px 1px 1px 1px;
+}
+
+.news .content a:hover {
+	border: 1px dotted #000;
+	background-color: #eee;
+	padding: 1px 2px 1px 2px;
+	margin: 0px;
+}
+
+.news .content a:active {
+	background-color: #ccc !important;
+	position: relative;
+	top: 1px;
+	left: 1px;
+	padding: 1px 2px 1px 2px;
+	margin: 0px;
+}
+
+.news .content a:focus {
+	border: 1px solid #fff !important;
+	background-color: #ccc !important;
+	padding: 1px 2px 1px 2px;
+	margin: 0px;
+}
+
+/* --------------------------- Accomodations ----------------------- */
+
+/* boing boing */
+br {
+	clear: none !important;
+}
+
+/* engadget */
+p {
+	clear: none !important;
+}
+
+/* cadenhead */
+p.sourcecode {
+	font-family: monospace;
+	font-size: medium;
+	font-weight: bold;
+	border: 1px solid #ddd;
+	padding: 10px;
+	margin: 10px 20px 10px 20px;
+	background-color: #f8f8f8;
+	overflow: auto;
+}
+
+/* cadenhead */
+span.sourcecode {
+	font-family: monospace;
+	font-size: medium;
+	font-weight: bold;
+	font-size: large;
+	background-color: #f8f8f8;
+}
+
+/* hsivonen */
+ul p, ol p {
+	margin-top: 0.3em;
+	margin-bottom: 0.3em;
+}
+
+/* programmableweb */
+.imgRight {
+	float: right;
+}
+
+/* gizmodo */
+img.left {
+	float: left;
+}
+
+/* gizmodo */
+img.right {
+	float: right;
+}
+
+/* gizmodo */
+img.center {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+/* wikipedia */
+table {
+	width: auto !important;
+}
+
+/* del.icio.us */
+.delicious-tags {
+	font-size: x-small;
+	text-align: right;
+}
+
+/* musings */
+img.mathlogo, img.svglogo {
+	float: right;
+	border: 0;
+}
+
+math {
+	white-space: nowrap;
+}
+
+math[display=block] {
+	overflow: auto;
+}
+
+.numberedEq span, .eqno {
+	float: right;
+}
+
+/* sutor */
+img.post-img-right {
+	float:right;
+}
+
+/* niall */
+img.floatright {
+	float: right;
+}
+
+/* jason kolb */
+.FeaturedPost > li {
+	list-style-type: none;
+	background-color: #f8f8f8;
+}
+
+/* Tantek */
+ul.tags,ul.tags li,h4.tags {
+	display:inline;
+	font-size: x-small
+}
+
+ul.tags a:link, ul.tags a:visited {
+	color:green
+}
+
+a[rel='tag'] img {
+    border: 0;
+}
+
+/* DiveIntoMark */
+.framed {
+	float: none;
+}
+
+/* BurningBird */
+.update:before {
+	content: 'Update';
+	font-weight: bold;
+}
+
+.update {
+    margin: 2em;
+    padding: 0 1em 0 1em;
+    background: #eee;
+    border: 1px solid #aaa;
+}
+
+/* ----------------------------- Footer ---------------------------- */
+
+#footer {
+	padding: 0px;
+	margin: 30px 0px 50px 50px;
+}
+
+#footer p {
+	padding: 2px 2px 2px 5px;
+	background-color: #ccc;
+	border-top: 1px solid #aaa;
+	border-bottom: 1px solid #aaa;
+	border-left: 1px solid #aaa;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+	text-align: left;
+}

@@ -1,0 +1,10 @@
+<!--
+Description:  illegal control character
+Expect:       'U+000c' in content[0].value
+-->
+
+<feed xmns="http://www.w3.org/2005/Atom">
+  <entry>
+    <content type="html">Page 1&#12;Page 2</content>
+  </entry>
+</feed>
