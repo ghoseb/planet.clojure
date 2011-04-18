@@ -5,3 +5,4 @@ clojure/cache
 .sass-cache
 *.pyc
 planet/*.pyc
+*~
