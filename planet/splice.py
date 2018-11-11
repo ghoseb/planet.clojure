@@ -166,7 +166,7 @@ def splice():
 #		    log.debug("Going to post URL to Twitter: twitter='{}' title='{}', url='{}'".format(twitter, title, url))
 		    txt_append = ''
 		    if twitter:
-			txt_append = " (by @" + twitter + ")"
+			txt_append = " (by @" + twitter.strip() + ")"
 		    max_title_len = 280 - 20 - len(txt_append)
 		    if (len(title) > max_title_len):
 			title = title[:max_title_len]
