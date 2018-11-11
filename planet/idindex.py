@@ -13,8 +13,8 @@ def open():
         cache = config.cache_directory()
         index=os.path.join(cache,'index')
         if not os.path.exists(index): return None
-        import dbhash
-        return dbhash.open(filename(index, 'id'),'w')
+        import anydbm
+        return anydbm.open(filename(index, 'id'),'w')
     except Exception, e:
         if e.__class__.__name__ == 'DBError': e = e.args[-1]
         from planet import logger as log
@@ -35,8 +35,8 @@ def create():
     cache = config.cache_directory()
     index=os.path.join(cache,'index')
     if not os.path.exists(index): os.makedirs(index)
-    import dbhash
-    index = dbhash.open(filename(index, 'id'),'c')
+    import anydbm
+    index = anydbm.open(filename(index, 'id'),'c')
 
     try:
         import libxml2

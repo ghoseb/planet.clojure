@@ -6,3 +6,8 @@ clojure/cache
 *.pyc
 planet/*.pyc
 *~
+/twitter-data.txt
+/debug.atom
+/fetch.log
+/t1.py
+/posted_urls.pickle

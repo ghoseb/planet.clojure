@@ -1,10 +1,12 @@
 """ Splice together a planet from a cache of feed entries """
-import glob, os, time, shutil
+import glob, os, time, shutil, pickle
 from xml.dom import minidom
 import planet, config, feedparser, reconstitute, shell
 from reconstitute import createTextElement, date
 from spider import filename
 from planet import idindex
+
+posted_urls_file = 'posted_urls.pickle'
 
 def splice():
     """ Splice together a planet from a cache of entries """
@@ -62,20 +64,25 @@ def splice():
     sources = config.cache_sources_directory()
     for sub in config.subscriptions():
         data=feedparser.parse(filename(sources,sub))
-        if data.feed.has_key('id'): sub_ids.append(data.feed.id)
-        if not data.feed: continue
+        if data.feed.has_key('id'):
+	    sub_ids.append(data.feed.id)
+        if not data.feed:
+	    continue
 
         # warn on missing links
         if not data.feed.has_key('planet_message'):
-            if not data.feed.has_key('links'): data.feed['links'] = []
+            if not data.feed.has_key('links'):
+		data.feed['links'] = []
 
             for link in data.feed.links:
-              if link.rel == 'self': break
+              if link.rel == 'self':
+		  break
             else:
               log.debug('missing self link for ' + sub)
 
             for link in data.feed.links:
-              if link.rel == 'alternate' and 'html' in link.type: break
+              if link.rel == 'alternate' and 'html' in link.type:
+		  break
             else:
               log.debug('missing html link for ' + sub)
 
@@ -91,10 +98,22 @@ def splice():
     count = {}
     atomNS='http://www.w3.org/2005/Atom'
     new_feed_items = config.new_feed_items()
+
+    posted_urls = set()
+    if config.post_to_twitter:
+	if os.path.exists(posted_urls_file):
+	    try:
+		with open(posted_urls_file, 'rb') as f:
+		    posted_urls = pickle.load(f)
+            except Exception as ex:
+		log.error("Error reading posted_urls %s", ex)
+#    print(posted_urls)
+		
     for mtime,file in dir:
         if index != None:
             base = os.path.basename(file)
-            if index.has_key(base) and index[base] not in sub_ids: continue
+            if index.has_key(base) and index[base] not in sub_ids:
+		continue
 
         try:
             entry=minidom.parse(file)
@@ -109,30 +128,78 @@ def splice():
                 if ids:
                     id = ids[0].childNodes[0].nodeValue
                     count[id] = count.get(id,0) + 1
-                    if new_feed_items and count[id] > new_feed_items: continue
+                    if new_feed_items and count[id] > new_feed_items:
+			continue
 
                     if id not in sub_ids:
                         ids = sources[0].getElementsByTagName('planet:id')
-                        if not ids: continue
+                        if not ids:
+			    continue
                         id = ids[0].childNodes[0].nodeValue
                         if id not in sub_ids:
                           log.warn('Skipping: ' + id)
-                        if id not in sub_ids: continue
+                        if id not in sub_ids:
+			    continue
 
+	    # Twitter integration
+	    if config.post_to_twitter:
+		url = None
+		twitter = None
+		title = "Untitled post..."
+		links = entry.getElementsByTagName('link')
+		if links:
+		    for link in links:
+			if link.hasAttribute('rel') and link.hasAttribute('type') and link.hasAttribute('href'):
+			    if (link.getAttribute('rel') == 'alternate' and
+				link.getAttribute('type') == 'text/html'):
+				url = link.getAttribute('href')
+				break
+
+		titles = entry.getElementsByTagName('title')
+		if titles:
+		    title = titles[0].firstChild.nodeValue
+		handles = entry.getElementsByTagName('planet:twitter')
+		if (handles):
+		    twitter = handles[0].firstChild.nodeValue
+
+		if url is not None and url not in posted_urls:
+#		    log.debug("Going to post URL to Twitter: twitter='{}' title='{}', url='{}'".format(twitter, title, url))
+		    txt_append = ''
+		    if twitter:
+			txt_append = " (by @" + twitter + ")"
+		    max_title_len = 280 - 20 - len(txt_append)
+		    if (len(title) > max_title_len):
+			title = title[:max_title_len]
+		    txt =  title + txt_append + "\n" + url
+		    
+		    log.debug("Text to post '{}'".format(txt))
+		    try:
+			posted_urls.add(url)
+			config.twitter_api.update_status(txt)
+		    except Exception as ex:
+			log.error("Error posting to Twitter: %s", ex)
+	    
             # add entry to feed
             feed.appendChild(entry.documentElement)
             items = items + 1
-            if items >= max_items: break
-        except:
-            log.error("Error parsing %s", file)
+            if items >= max_items:
+		break
+        except Exception as ex:
+            log.error("Error parsing %s: %s", file, ex)
 
-    if index: index.close()
+    if config.post_to_twitter:
+	with open(posted_urls_file, 'wb') as f:
+	    pickle.dump(posted_urls, f, protocol=pickle.HIGHEST_PROTOCOL)
+	    
+    if index:
+	index.close()
 
     return doc
 
 def apply(doc):
     output_dir = config.output_dir()
-    if not os.path.exists(output_dir): os.makedirs(output_dir)
+    if not os.path.exists(output_dir):
+	os.makedirs(output_dir)
     log = planet.logger
 
     planet_filters = config.filters('Planet')
