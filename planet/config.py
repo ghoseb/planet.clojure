@@ -76,8 +76,8 @@ def __init__():
         planet_predefined_options.append(name)
 
     # define a bool planet-level variable
-    def define_planet_bool(name, default=False):
-        setattr(config, name, lambda : bool(get(None,name,default)))
+    def define_planet_bool(name, default='False'):
+        setattr(config, name, lambda : get(None,name,default).lower().strip() == 'true')
         planet_predefined_options.append(name)
 
     # define a list planet-level variable
@@ -112,7 +112,7 @@ def __init__():
     define_planet('spider_threads', 0) 
     define_planet('pubsubhubbub_hub', '')
     define_planet_list('pubsubhubbub_feeds', 'atom.xml rss10.xml rss20.xml')
-    define_planet_bool('post_to_twitter', False)
+    define_planet_bool('post_to_twitter')
 
     define_planet_int('new_feed_items', 0) 
     define_planet_int('feed_timeout', 20)
@@ -229,7 +229,7 @@ def load(config_file):
             downloadReadingList(list, parser, data2config)
 
     # for Twitter integration
-    if getattr(config, 'post_to_twitter', False):
+    if config.post_to_twitter():
 	log.info('Twitter integration is enabled')
 	twitter_consumer_key = get_twitter_conf_value(config, 'twitter_consumer_key')
 	twitter_consumer_secret = get_twitter_conf_value(config, 'twitter_consumer_secret')

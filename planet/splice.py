@@ -100,7 +100,7 @@ def splice():
     new_feed_items = config.new_feed_items()
 
     posted_urls = set()
-    if config.post_to_twitter:
+    if config.post_to_twitter():
 	if os.path.exists(posted_urls_file):
 	    try:
 		with open(posted_urls_file, 'rb') as f:
@@ -142,7 +142,7 @@ def splice():
 			    continue
 
 	    # Twitter integration
-	    if config.post_to_twitter:
+	    if config.post_to_twitter():
 		url = None
 		twitter = None
 		title = "Untitled post..."
@@ -187,7 +187,7 @@ def splice():
         except Exception as ex:
             log.error("Error parsing %s: %s", file, ex)
 
-    if config.post_to_twitter:
+    if config.post_to_twitter():
 	with open(posted_urls_file, 'wb') as f:
 	    pickle.dump(posted_urls, f, protocol=pickle.HIGHEST_PROTOCOL)
 	    
