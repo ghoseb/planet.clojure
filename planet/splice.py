@@ -1,5 +1,5 @@
 """ Splice together a planet from a cache of feed entries """
-import glob, os, time, shutil, pickle
+import glob, os, time, shutil, pickle, traceback,sys
 from xml.dom import minidom
 import planet, config, feedparser, reconstitute, shell
 from reconstitute import createTextElement, date
@@ -158,27 +158,27 @@ def splice():
 
 		titles = entry.getElementsByTagName('title')
 		if titles:
-		    title = titles[0].firstChild.nodeValue.encode('utf-8').strip()
+		    title = unicode(titles[0].firstChild.nodeValue.encode('utf-8'), 'utf-8').strip()
 		handles = entry.getElementsByTagName('planet:twitter')
 		if (handles):
-		    twitter = handles[0].firstChild.nodeValue
+		    twitter = unicode(handles[0].firstChild.nodeValue.encode('utf-8'), "utf-8")
 
 		if url is not None and url not in posted_urls:
 #		    log.debug("Going to post URL to Twitter: twitter='{}' title='{}', url='{}'".format(twitter, title, url))
-		    txt_append = ''
+		    txt_append = u''
 		    if twitter:
-			txt_append = " (by @" + twitter.encode('utf-8').strip() + ")"
+			txt_append = u" (by @" + twitter.encode('utf-8').strip() + u")"
 		    max_title_len = 280 - 20 - len(txt_append)
 		    if (len(title) > max_title_len):
 			title = title[:max_title_len]
-		    txt =  title + txt_append + "\n" + url
+		    txt =  title + txt_append + u"\n" + url
 		    
-		    log.debug("Text to post '{}'".format(txt))
+		    log.debug(u"Text to post '{}'".format(txt))
 		    try:
 			posted_urls.add(url)
 			config.twitter_api.update_status(txt)
 		    except Exception as ex:
-			log.error("Error posting to Twitter: %s", ex)
+			log.error(u"Error posting to Twitter: %s", ex)
 	    
             # add entry to feed
             feed.appendChild(entry.documentElement)
@@ -187,7 +187,9 @@ def splice():
 		break
         except Exception as ex:
             log.error("Error parsing %s: %s", file, ex)
-	    traceback.print_last()
+	    exc_type, exc_value, exc_traceback = sys.exc_info()
+	    traceback.print_exception(exc_type, exc_value, exc_traceback,
+				      limit=2, file=sys.stdout)
 
     if config.post_to_twitter():
 	with open(posted_urls_file, 'wb') as f:
