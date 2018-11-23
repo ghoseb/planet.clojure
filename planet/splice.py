@@ -5,6 +5,7 @@ import planet, config, feedparser, reconstitute, shell
 from reconstitute import createTextElement, date
 from spider import filename
 from planet import idindex
+import traceback
 
 posted_urls_file = 'posted_urls.pickle'
 
@@ -186,6 +187,7 @@ def splice():
 		break
         except Exception as ex:
             log.error("Error parsing %s: %s", file, ex)
+	    traceback.print_last()
 
     if config.post_to_twitter():
 	with open(posted_urls_file, 'wb') as f:
