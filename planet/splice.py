@@ -158,7 +158,7 @@ def splice():
 
 		titles = entry.getElementsByTagName('title')
 		if titles:
-		    title = titles[0].firstChild.nodeValue
+		    title = titles[0].firstChild.nodeValue.encode('utf-8').strip()
 		handles = entry.getElementsByTagName('planet:twitter')
 		if (handles):
 		    twitter = handles[0].firstChild.nodeValue
@@ -167,7 +167,7 @@ def splice():
 #		    log.debug("Going to post URL to Twitter: twitter='{}' title='{}', url='{}'".format(twitter, title, url))
 		    txt_append = ''
 		    if twitter:
-			txt_append = " (by @" + twitter.strip() + ")"
+			txt_append = " (by @" + twitter.encode('utf-8').strip() + ")"
 		    max_title_len = 280 - 20 - len(txt_append)
 		    if (len(title) > max_title_len):
 			title = title[:max_title_len]
