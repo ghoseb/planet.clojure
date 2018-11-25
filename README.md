@@ -24,8 +24,20 @@ After you are done, commit the change to your repository and send me a
 pull request. I will be happy to add you to Planet Clojure.
 
 Note: Please add the feed which contains only those posts which are 
-Clojure/Lisp related. As a policy we do not put generic feeds on Planet 
-Clojure. 
+Clojure/Lisp related. 
+
+As a policy we do not put generic feeds on Planet Clojure, but if you don't have
+Clojure-specific feed on your site, you may try to add following parameter to the section
+to filter only Clojure-specific posts (but be careful, it may not be very precise if your
+feed doesn't include enough text to match this regex):
+
+    filter = (clojure|Clojure|\(def |\(defn-? )
+
+If you also have Twitter account, please add `twitter` parameter to the section, like
+this:
+
+    twitter = <handle-without-@>
+
 
 Reporting Bugs
 --------------
