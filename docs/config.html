@@ -95,6 +95,16 @@ number of days will be marked as inactive</dd>
 
 </dl>
 <dl class="compact code">
+  <dt>post_to_twitter</dt><dd>(<code>true</code> or <code>false</code> (default if
+    omitted)) enables the cross posting of articles to Twitter account defined by
+    following environment variables:
+    <code>twitter_consumer_key</code>, <code>twitter_consumer_secret</code>,
+    <code>twitter_access_token</code>, <code>twitter_access_token_secret</code>.
+    If site's section has <code>twitter</code> configuration, then this handle will be
+    used to specify author's name.</dd>
+</dl>
+
+<dl class="compact code">
 
 <dt>log_level</dt>
 <dd>One of <code>DEBUG</code>, <code>INFO</code>, <code>WARNING</code>, <code>ERROR</code> or <code>CRITICAL</code></dd>

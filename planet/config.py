@@ -70,9 +70,14 @@ def __init__():
         setattr(config, name, lambda default=default: get(None,name,default))
         planet_predefined_options.append(name)
 
-    # define a list planet-level variable
+    # define a int planet-level variable
     def define_planet_int(name, default=0):
         setattr(config, name, lambda : int(get(None,name,default)))
+        planet_predefined_options.append(name)
+
+    # define a bool planet-level variable
+    def define_planet_bool(name, default='False'):
+        setattr(config, name, lambda : get(None,name,default).lower().strip() == 'true')
         planet_predefined_options.append(name)
 
     # define a list planet-level variable
@@ -107,6 +112,7 @@ def __init__():
     define_planet('spider_threads', 0) 
     define_planet('pubsubhubbub_hub', '')
     define_planet_list('pubsubhubbub_feeds', 'atom.xml rss10.xml rss20.xml')
+    define_planet_bool('post_to_twitter')
 
     define_planet_int('new_feed_items', 0) 
     define_planet_int('feed_timeout', 20)
@@ -133,6 +139,13 @@ def __init__():
     define_tmpl('filter', None) 
     define_tmpl('exclude', None) 
 
+def get_twitter_conf_value(conf, name):
+    attr = os.getenv(name)
+    if (attr is None):
+	raise Exception('Environment variable "{}" is not set!'.format(name))
+	
+    return attr
+    
 def load(config_file):
     """ initialize and load a configuration"""
     global parser
@@ -214,6 +227,21 @@ def load(config_file):
 
         for list in reading_lists:
             downloadReadingList(list, parser, data2config)
+
+    # for Twitter integration
+    if config.post_to_twitter():
+	log.info('Twitter integration is enabled')
+	twitter_consumer_key = get_twitter_conf_value(config, 'twitter_consumer_key')
+	twitter_consumer_secret = get_twitter_conf_value(config, 'twitter_consumer_secret')
+	twitter_access_token = get_twitter_conf_value(config, 'twitter_access_token')
+	twitter_access_token_secret = get_twitter_conf_value(config, 'twitter_access_token_secret')
+
+	import tweepy
+	auth = tweepy.OAuthHandler(twitter_consumer_key, twitter_consumer_secret)
+	auth.set_access_token(twitter_access_token, twitter_access_token_secret)
+	api = tweepy.API(auth)
+
+	setattr(config, 'twitter_api', api)
 
 def downloadReadingList(list, orig_config, callback, use_cache=True, re_read=True):
     from planet import logger
@@ -349,7 +377,7 @@ def feedtype():
 
 def subscriptions():
     """ list the feed subscriptions """
-    return __builtins__['filter'](lambda feed: feed!='Planet' and 
+    return __builtins__['filter'](lambda feed: feed != 'Planet' and 
         feed not in template_files()+filters()+reading_lists(),
         parser.sections())
 
