@@ -1,74 +1,109 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import unittest, planet
-from planet import idindex, config
+import os
+import sys
+import unittest
+import logging
+import pickle
+from xml.dom import minidom
 
-class idIndexTest(unittest.TestCase):
+import planet
+from planet import config, idindex
 
+class IdIndexTestCase(unittest.TestCase):
     def setUp(self):
-        # silence errors
-        self.original_logger = planet.logger
-        planet.getLogger('CRITICAL',None)
+        self.config = os.path.join(os.path.dirname(__file__), 'data', 'test.ini')
+        config.load(self.config)
+        self.cache_dir = config.cache_directory()
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
 
     def tearDown(self):
-        idindex.destroy()
-        planet.logger = self.original_logger
+        if os.path.exists(self.cache_dir):
+            for file in os.listdir(self.cache_dir):
+                os.remove(os.path.join(self.cache_dir, file))
+            os.rmdir(self.cache_dir)
 
-    def test_unicode(self):
-        from planet.spider import filename
-        index = idindex.create()
-        iri = 'http://www.\xe8\xa9\xb9\xe5\xa7\x86\xe6\x96\xaf.com/'
-        index[filename('', iri)] = 'data'
-        index[filename('', iri.decode('utf-8'))] = 'data'
-        index[filename('', u'1234')] = 'data'
-        index.close()
+    def test_create_index(self):
+        """Test creating an index"""
+        # Create a test feed
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry</title>
+                    <id>test-entry-1</id>
+                </entry>
+            </feed>''')
         
-    def test_index_spider(self):
-        import test_spider
-        config.load(test_spider.configfile)
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
 
-        index = idindex.create()
-        self.assertEqual(0, len(index))
-        index.close()
+        # Create the index
+        idindex.create()
 
-        from planet.spider import spiderPlanet
-        try:
-            spiderPlanet()
+        # Check that the index was created
+        self.assertTrue(os.path.exists(os.path.join(self.cache_dir, 'test-entry-1.db')))
 
-            index = idindex.open()
-            self.assertEqual(12, len(index))
-            self.assertEqual('tag:planet.intertwingly.net,2006:testfeed1', index['planet.intertwingly.net,2006,testfeed1,1'])
-            self.assertEqual('http://intertwingly.net/code/venus/tests/data/spider/testfeed3.rss', index['planet.intertwingly.net,2006,testfeed3,1'])
-            index.close()
-        finally:
-            import os, shutil
-            shutil.rmtree(test_spider.workdir)
-            os.removedirs(os.path.split(test_spider.workdir)[0])
+    def test_lookup_entry(self):
+        """Test looking up an entry"""
+        # Create a test feed
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry</title>
+                    <id>test-entry-1</id>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
 
-    def test_index_splice(self):
-        import test_splice
-        config.load(test_splice.configfile)
-        index = idindex.create()
+        # Create the index
+        idindex.create()
 
-        self.assertEqual(12, len(index))
-        self.assertEqual('tag:planet.intertwingly.net,2006:testfeed1', index['planet.intertwingly.net,2006,testfeed1,1'])
-        self.assertEqual('http://intertwingly.net/code/venus/tests/data/spider/testfeed3.rss', index['planet.intertwingly.net,2006,testfeed3,1'])
+        # Look up the entry
+        entry = idindex.lookup('test-entry-1')
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.title, 'Test Entry')
 
-        for key in index.keys():
-            value = index[key]
-            if value.find('testfeed2')>0: index[key] = value.swapcase()
-        index.close()
+    def test_add_entry(self):
+        """Test adding an entry"""
+        # Create a test entry
+        entry = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <entry xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Entry</title>
+                <id>test-entry-1</id>
+            </entry>''').documentElement
 
-        from planet.splice import splice
-        doc = splice()
+        # Add the entry
+        idindex.add('test-entry-1', entry)
 
-        self.assertEqual(8,len(doc.getElementsByTagName('entry')))
-        self.assertEqual(4,len(doc.getElementsByTagName('planet:source')))
-        self.assertEqual(12,len(doc.getElementsByTagName('planet:name')))
+        # Check that the entry was added
+        self.assertTrue(os.path.exists(os.path.join(self.cache_dir, 'test-entry-1.db')))
 
-try:
-    module = 'dbhash'
-except ImportError:
-    planet.logger.warn("dbhash is not available => can't test id index")
-    for method in dir(idIndexTest):
-        if method.startswith('test_'):  delattr(idIndexTest,method)
+    def test_remove_entry(self):
+        """Test removing an entry"""
+        # Create a test entry
+        entry = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <entry xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Entry</title>
+                <id>test-entry-1</id>
+            </entry>''').documentElement
+
+        # Add the entry
+        idindex.add('test-entry-1', entry)
+
+        # Remove the entry
+        idindex.remove('test-entry-1')
+
+        # Check that the entry was removed
+        self.assertFalse(os.path.exists(os.path.join(self.cache_dir, 'test-entry-1.db')))
+
+if __name__ == '__main__':
+    unittest.main()

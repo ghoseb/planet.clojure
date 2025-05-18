@@ -27,6 +27,7 @@ To use, simply 'import logging' and log away!
 """
 
 import sys, logging, logging.handlers, string, thread, threading, socket, struct, os
+import configparser
 
 from SocketServer import ThreadingTCPServer, StreamRequestHandler
 
@@ -57,9 +58,7 @@ def fileConfig(fname, defaults=None):
     rather than a filename, in which case the file-like object will be read
     using readfp.
     """
-    import ConfigParser
-
-    cp = ConfigParser.ConfigParser(defaults)
+    cp = configparser.ConfigParser(defaults)
     if hasattr(cp, 'readfp') and hasattr(fname, 'readline'):
         cp.readfp(fname)
     else:

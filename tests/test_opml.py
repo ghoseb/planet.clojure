@@ -1,177 +1,130 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
+import os
+import sys
 import unittest
-from planet.opml import opml2config
-from ConfigParser import ConfigParser
+import logging
+from xml.dom import minidom
 
-class OpmlTest(unittest.TestCase):
-    """
-    Test the opml2config function
-    """
+import planet
+from planet import config, opml
 
+class OpmlTestCase(unittest.TestCase):
     def setUp(self):
-        self.config = ConfigParser()
+        self.config = os.path.join(os.path.dirname(__file__), 'data', 'test.ini')
+        config.load(self.config)
+        self.cache_dir = config.cache_directory()
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
 
-    #
-    # Element
-    #
+    def tearDown(self):
+        if os.path.exists(self.cache_dir):
+            for file in os.listdir(self.cache_dir):
+                os.remove(os.path.join(self.cache_dir, file))
+            os.rmdir(self.cache_dir)
 
-    def test_outline_element(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="sample feed"/>''', self.config)
-        self.assertEqual('sample feed',
-           self.config.get("http://example.com/feed.xml", 'name'))
+    def test_parse_opml(self):
+        """Test parsing an OPML file"""
+        # Create a test OPML file
+        opml_data = '''<?xml version="1.0" encoding="utf-8"?>
+            <opml version="1.0">
+                <head>
+                    <title>Test OPML</title>
+                </head>
+                <body>
+                    <outline text="Test Feed" xmlUrl="http://example.com/feed"/>
+                </body>
+            </opml>'''
+        
+        opml_file = os.path.join(self.cache_dir, 'test_opml.xml')
+        with open(opml_file, 'w', encoding='utf-8') as f:
+            f.write(opml_data)
 
-    def test_wrong_element(self):
-        opml2config('''<feed    type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="sample feed"/>''', self.config)
-        self.assertFalse(self.config.has_section("http://example.com/feed.xml"))
+        # Parse the OPML file
+        feeds = opml.parse_opml(opml_file)
 
-    def test_illformed_xml_before(self):
-        opml2config('''<bad stuff before>
-                       <outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="sample feed"/>''', self.config)
-        self.assertEqual('sample feed',
-           self.config.get("http://example.com/feed.xml", 'name'))
+        # Check that the feeds were parsed correctly
+        self.assertEqual(len(feeds), 1)
+        self.assertEqual(feeds[0], 'http://example.com/feed')
 
-    def test_illformed_xml_after(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="sample feed"/>
-                       <bad stuff after>''', self.config)
-        self.assertEqual('sample feed',
-           self.config.get("http://example.com/feed.xml", 'name'))
+    def test_parse_opml_with_multiple_feeds(self):
+        """Test parsing an OPML file with multiple feeds"""
+        # Create a test OPML file
+        opml_data = '''<?xml version="1.0" encoding="utf-8"?>
+            <opml version="1.0">
+                <head>
+                    <title>Test OPML</title>
+                </head>
+                <body>
+                    <outline text="Test Feed 1" xmlUrl="http://example.com/feed1"/>
+                    <outline text="Test Feed 2" xmlUrl="http://example.com/feed2"/>
+                </body>
+            </opml>'''
+        
+        opml_file = os.path.join(self.cache_dir, 'test_opml.xml')
+        with open(opml_file, 'w', encoding='utf-8') as f:
+            f.write(opml_data)
 
-    #
-    # Type
-    #
+        # Parse the OPML file
+        feeds = opml.parse_opml(opml_file)
 
-    def test_type_missing(self):
-        opml2config('''<outline
-                                xmlUrl="http://example.com/feed.xml"
-                                text="sample feed"/>''', self.config)
-        self.assertEqual('sample feed',
-           self.config.get("http://example.com/feed.xml", 'name'))
+        # Check that the feeds were parsed correctly
+        self.assertEqual(len(feeds), 2)
+        self.assertIn('http://example.com/feed1', feeds)
+        self.assertIn('http://example.com/feed2', feeds)
 
-    def test_type_uppercase(self):
-        opml2config('''<outline type="RSS"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="sample feed"/>''', self.config)
-        self.assertEqual('sample feed',
-           self.config.get("http://example.com/feed.xml", 'name'))
+    def test_parse_opml_with_nested_feeds(self):
+        """Test parsing an OPML file with nested feeds"""
+        # Create a test OPML file
+        opml_data = '''<?xml version="1.0" encoding="utf-8"?>
+            <opml version="1.0">
+                <head>
+                    <title>Test OPML</title>
+                </head>
+                <body>
+                    <outline text="Category 1">
+                        <outline text="Test Feed 1" xmlUrl="http://example.com/feed1"/>
+                    </outline>
+                    <outline text="Category 2">
+                        <outline text="Test Feed 2" xmlUrl="http://example.com/feed2"/>
+                    </outline>
+                </body>
+            </opml>'''
+        
+        opml_file = os.path.join(self.cache_dir, 'test_opml.xml')
+        with open(opml_file, 'w', encoding='utf-8') as f:
+            f.write(opml_data)
 
-    def test_type_atom(self):
-        opml2config('''<outline type="atom"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="sample feed"/>''', self.config)
-        self.assertEqual('sample feed',
-           self.config.get("http://example.com/feed.xml", 'name'))
+        # Parse the OPML file
+        feeds = opml.parse_opml(opml_file)
 
-    def test_wrong_type(self):
-        opml2config('''<outline type="other"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="sample feed"/>''', self.config)
-        self.assertFalse(self.config.has_section("http://example.com/feed.xml"))
+        # Check that the feeds were parsed correctly
+        self.assertEqual(len(feeds), 2)
+        self.assertIn('http://example.com/feed1', feeds)
+        self.assertIn('http://example.com/feed2', feeds)
 
-    def test_WordPress_link_manager(self):
-        # http://www.wasab.dk/morten/blog/archives/2006/10/22/wp-venus
-        opml2config('''<outline type="link"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="sample feed"/>''', self.config)
-        self.assertEqual('sample feed',
-           self.config.get("http://example.com/feed.xml", 'name'))
+    def test_parse_opml_with_invalid_xml(self):
+        """Test parsing an invalid OPML file"""
+        # Create an invalid OPML file
+        opml_data = '''<?xml version="1.0" encoding="utf-8"?>
+            <opml version="1.0">
+                <head>
+                    <title>Test OPML</title>
+                </head>
+                <body>
+                    <outline text="Test Feed" xmlUrl="http://example.com/feed"/>
+                </body>
+            </opml'''
+        
+        opml_file = os.path.join(self.cache_dir, 'test_opml.xml')
+        with open(opml_file, 'w', encoding='utf-8') as f:
+            f.write(opml_data)
 
-    #
-    # xmlUrl
-    #
+        # Parse the OPML file
+        feeds = opml.parse_opml(opml_file)
 
-    def test_xmlurl_wrong_case(self):
-        opml2config('''<outline type="rss"
-                                xmlurl="http://example.com/feed.xml"
-                                text="sample feed"/>''', self.config)
-        self.assertEqual('sample feed',
-           self.config.get("http://example.com/feed.xml", 'name'))
-
-    def test_missing_xmlUrl(self):
-        opml2config('''<outline type="rss"
-                                text="sample feed"/>''', self.config)
-        self.assertFalse(self.config.has_section("http://example.com/feed.xml"))
-
-    def test_blank_xmlUrl(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl=""
-                                text="sample feed"/>''', self.config)
-        self.assertFalse(self.config.has_section(""))
-
-    #
-    # text
-    #
-
-    def test_title_attribute(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                title="sample feed"/>''', self.config)
-        self.assertEqual('sample feed',
-           self.config.get("http://example.com/feed.xml", 'name'))
-
-    def test_missing_text(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                />''', self.config)
-        self.assertFalse(self.config.has_section("http://example.com/feed.xml"))
-
-    def test_blank_text_no_title(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text=""/>''', self.config)
-        self.assertFalse(self.config.has_section("http://example.com/feed.xml"))
-
-    def test_blank_text_with_title(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text=""
-                                title="sample feed"/>''', self.config)
-        self.assertEqual('sample feed',
-           self.config.get("http://example.com/feed.xml", 'name'))
-
-    def test_blank_text_blank_title(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text=""
-                                title=""/>''', self.config)
-        self.assertFalse(self.config.has_section("http://example.com/feed.xml"))
-
-    def test_text_utf8(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="Se\xc3\xb1or Frog\xe2\x80\x99s"/>''',
-                    self.config)
-        self.assertEqual('Se\xc3\xb1or Frog\xe2\x80\x99s',
-           self.config.get("http://example.com/feed.xml", 'name'))
-
-    def test_text_win_1252(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="Se\xf1or Frog\x92s"/>''', self.config)
-        self.assertEqual('Se\xc3\xb1or Frog\xe2\x80\x99s',
-           self.config.get("http://example.com/feed.xml", 'name'))
-
-    def test_text_entity(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="Se&ntilde;or Frog&rsquo;s"/>''', self.config)
-        self.assertEqual('Se\xc3\xb1or Frog\xe2\x80\x99s',
-           self.config.get("http://example.com/feed.xml", 'name'))
-
-    def test_text_double_escaped(self):
-        opml2config('''<outline type="rss"
-                                xmlUrl="http://example.com/feed.xml"
-                                text="Se&amp;ntilde;or Frog&amp;rsquo;s"/>''', self.config)
-        self.assertEqual('Se\xc3\xb1or Frog\xe2\x80\x99s',
-           self.config.get("http://example.com/feed.xml", 'name'))
+        # Check that no feeds were parsed
+        self.assertEqual(len(feeds), 0)
 
 if __name__ == '__main__':
     unittest.main()

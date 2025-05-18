@@ -3,22 +3,23 @@ xmlns = 'http://planet.intertwingly.net/'
 logger = None
 loggerParms = None
 
-import os, sys, re
-import config
-config.__init__()
-
-from ConfigParser import ConfigParser
-from urlparse import urljoin
+import os
+import sys
+import re
+import logging
+from configparser import ConfigParser
+from urllib.parse import urljoin
 
 def getLogger(level, format):
-    """ get a logger with the specified log level """
+    """Get a logger with the specified log level"""
     global logger, loggerParms
-    if logger and loggerParms == (level,format): return logger
+    if logger and loggerParms == (level, format):
+        return logger
 
     try:
         import logging
         logging.basicConfig(format=format)
-    except:
+    except ImportError:
         import compat_logging as logging
         logging.basicConfig(format=format)
 
@@ -26,17 +27,17 @@ def getLogger(level, format):
     logger.setLevel(logging.getLevelName(level))
     try:
         logger.warning
-    except:
+    except AttributeError:
         logger.warning = logger.warn
 
-    loggerParms = (level,format)
+    loggerParms = (level, format)
     return logger
 
-sys.path.insert(1, os.path.join(os.path.dirname(__file__),'vendor'))
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), 'vendor'))
 
 # Configure feed parser
 import feedparser
-feedparser.SANITIZE_HTML=1
-feedparser.RESOLVE_RELATIVE_URIS=0
+feedparser.SANITIZE_HTML = 1
+feedparser.RESOLVE_RELATIVE_URIS = 0
 
 import publish

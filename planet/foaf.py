@@ -1,4 +1,4 @@
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 
 inheritable_options = [ 'online_accounts' ]
 

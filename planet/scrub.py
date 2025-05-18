@@ -5,7 +5,8 @@ Process a set of configuration defined sanitations on a given feed.
 # Standard library modules
 import time
 # Planet modules
-import planet, config, shell
+import planet
+from planet import config, shell
 from planet import feedparser
 
 type_map = {'text': 'text/plain', 'html': 'text/html',

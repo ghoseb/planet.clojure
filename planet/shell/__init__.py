@@ -48,7 +48,7 @@ def run(template_file, doc, mode='template'):
             module = __import__("_" + module_name)
         except:
             module = __import__(module_name)
-    except Exception, inst:
+    except Exception as inst:
         return log.error("Skipping %s '%s' after failing to load '%s': %s", 
             mode, template_resolved, module_name, inst)
 

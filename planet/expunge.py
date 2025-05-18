@@ -1,7 +1,8 @@
 """ Expunge old entries from a cache of entries """
-import glob, os, planet, config, feedparser
+import glob, os, planet, feedparser
 from xml.dom import minidom
-from spider import filename
+from planet.spider import filename
+from planet import config
 
 def expungeCache():
     """ Expunge old entries from a cache of entries """

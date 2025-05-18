@@ -11,33 +11,39 @@ Usage:
   config.load('config.ini')
 
   # administrative / structural information
-  print config.template_files()
-  print config.subscriptions()
+  print(config.template_files())
+  print(config.subscriptions())
 
   # planet wide configuration
-  print config.name()
-  print config.link()
+  print(config.name())
+  print(config.link())
 
   # per template configuration
-  print config.days_per_page('atom.xml.tmpl')
-  print config.encoding('index.html.tmpl')
+  print(config.days_per_page('atom.xml.tmpl'))
+  print(config.encoding('index.html.tmpl'))
 
 Todo:
   * error handling (example: no planet section)
 """
 
-import os, sys, re, urllib
-from ConfigParser import ConfigParser
-from urlparse import urljoin
+import os
+import sys
+import re
+import time
+import logging
+from configparser import ConfigParser
+from urllib.parse import urlparse, quote
+from planet import config
+from planet import getLogger
+from planet import opml, foaf, csv_config
+from io import StringIO
 
-parser = ConfigParser()
+parser = None
 
 planet_predefined_options = ['filters']
 
 def __init__():
     """define the struture of an ini file"""
-    import config
-
     # get an option from a section
     def get(section, option, default):
         if section and parser.has_option(section, option):
@@ -139,24 +145,20 @@ def __init__():
     define_tmpl('filter', None) 
     define_tmpl('exclude', None) 
 
-def get_twitter_conf_value(conf, name):
-    attr = os.getenv(name)
-    if (attr is None):
-	raise Exception('Environment variable "{}" is not set!'.format(name))
-	
-    return attr
-    
+def get_twitter_conf_value(config, key):
+    """Get Twitter configuration value from environment or config file"""
+    value = os.environ.get('TWITTER_' + key.upper())
+    if value is None:
+        value = config.get('Twitter', key, fallback=None)
+    return value
+
 def load(config_file):
     """ initialize and load a configuration"""
     global parser
     parser = ConfigParser()
     parser.read(config_file)
-
-    import config, planet
-    from planet import opml, foaf, csv_config
-    log = planet.logger
-    if not log:
-        log = planet.getLogger(config.log_level(),config.log_format())
+    __init__()  # Call __init__ to set defaults
+    log = getLogger(config.log_level(), config.log_format())
 
     # Theme support
     theme = config.output_theme()
@@ -208,6 +210,7 @@ def load(config_file):
             os.makedirs(config.cache_lists_directory())
 
         def data2config(data, cached_config):
+            """Convert data to configuration based on content type"""
             if content_type(list).find('opml')>=0:
                 opml.opml2config(data, cached_config)
             elif content_type(list).find('foaf')>=0:
@@ -218,8 +221,7 @@ def load(config_file):
                 cached_config.readfp(data)
             else:
                 from planet import shell
-                import StringIO
-                cached_config.readfp(StringIO.StringIO(shell.run(
+                cached_config.readfp(StringIO(shell.run(
                     content_type(list), data.getvalue(), mode="filter")))
 
             if cached_config.sections() in [[], [list]]: 
@@ -230,22 +232,21 @@ def load(config_file):
 
     # for Twitter integration
     if config.post_to_twitter():
-	log.info('Twitter integration is enabled')
-	twitter_consumer_key = get_twitter_conf_value(config, 'twitter_consumer_key')
-	twitter_consumer_secret = get_twitter_conf_value(config, 'twitter_consumer_secret')
-	twitter_access_token = get_twitter_conf_value(config, 'twitter_access_token')
-	twitter_access_token_secret = get_twitter_conf_value(config, 'twitter_access_token_secret')
+        log.info('Twitter integration is enabled')
+        twitter_consumer_key = get_twitter_conf_value(config, 'twitter_consumer_key')
+        twitter_consumer_secret = get_twitter_conf_value(config, 'twitter_consumer_secret')
+        twitter_access_token = get_twitter_conf_value(config, 'twitter_access_token')
+        twitter_access_token_secret = get_twitter_conf_value(config, 'twitter_access_token_secret')
 
-	import tweepy
-	auth = tweepy.OAuthHandler(twitter_consumer_key, twitter_consumer_secret)
-	auth.set_access_token(twitter_access_token, twitter_access_token_secret)
-	api = tweepy.API(auth)
+        import tweepy
+        auth = tweepy.OAuthHandler(twitter_consumer_key, twitter_consumer_secret)
+        auth.set_access_token(twitter_access_token, twitter_access_token_secret)
+        api = tweepy.API(auth)
 
-	setattr(config, 'twitter_api', api)
+        setattr(config, 'twitter_api', api)
 
 def downloadReadingList(list, orig_config, callback, use_cache=True, re_read=True):
     from planet import logger
-    import config
     try:
 
         import urllib2, StringIO
@@ -278,12 +279,12 @@ def downloadReadingList(list, orig_config, callback, use_cache=True, re_read=Tru
         # read list
         curdir=getattr(os.path, 'curdir', '.')
         if sys.platform.find('win') < 0:
-            base = urljoin('file:', os.path.abspath(curdir))
+            base = urlparse(curdir).path
         else:
             path = os.path.abspath(os.path.curdir)
-            base = urljoin('file:///', path.replace(':','|').replace('\\','/'))
+            base = urlparse(path).path
 
-        request = urllib2.Request(urljoin(base + '/', list))
+        request = urllib2.Request(urlparse(base + '/' + list).geturl())
         if options.has_key("etag"):
             request.add_header('If-None-Match', options['etag'])
         if options.has_key("last-modified"):
@@ -365,7 +366,7 @@ def feed():
         for template_file in template_files():
             name = os.path.splitext(os.path.basename(template_file))[0]
             if name.find('atom')>=0 or name.find('rss')>=0:
-                return urljoin(link(), name)
+                return urlparse(link()).geturl()
 
 def feedtype():
     if parser.has_option('Planet', 'feedtype'):
@@ -377,9 +378,9 @@ def feedtype():
 
 def subscriptions():
     """ list the feed subscriptions """
-    return __builtins__['filter'](lambda feed: feed != 'Planet' and 
+    return list(filter(lambda feed: feed != 'Planet' and 
         feed not in template_files()+filters()+reading_lists(),
-        parser.sections())
+        parser.sections()))
 
 def reading_lists():
     """ list of lists of feed subscriptions """
@@ -399,10 +400,10 @@ def filters(section=None):
         filters += parser.get('Planet', 'filters').split()
     if filter(section):
         filters.append('regexp_sifter.py?require=' +
-            urllib.quote(filter(section)))
+            quote(filter(section)))
     if exclude(section):
         filters.append('regexp_sifter.py?exclude=' +
-            urllib.quote(exclude(section)))
+            quote(exclude(section)))
     for section in section and [section] or template_files():
         if parser.has_option(section, 'filters'):
             filters += parser.get(section, 'filters').split()
@@ -416,7 +417,6 @@ def planet_options():
 
 def feed_options(section):
     """ dictionary of feed specific options"""
-    import config
     options = dict([(key,value) for key,value in planet_options().items()
         if key not in planet_predefined_options])
     if parser.has_section(section):
@@ -434,4 +434,86 @@ def filter_options(section):
 
 def write(file=sys.stdout):
     """ write out an updated template """
-    print parser.write(file)
+    print(parser.write(file))
+
+def output_dir():
+    """ output directory """
+    return parser.get('Planet', 'output_dir')
+
+def output_theme():
+    """ output theme """
+    return parser.get('Planet', 'output_theme')
+
+def template_directories():
+    """ template directories """
+    return parser.get('Planet', 'template_directories').split()
+
+def template_files():
+    """ template files """
+    return parser.get('Planet', 'template_files').split()
+
+def template_options(template_file):
+    """ template options """
+    if not parser.has_section(template_file):
+        return {}
+    return dict(parser.items(template_file))
+
+def filter_directories():
+    """ filter directories """
+    return parser.get('Planet', 'filter_directories').split()
+
+def filter_options(filter_file):
+    """ filter options """
+    if not parser.has_section(filter_file):
+        return {}
+    return dict(parser.items(filter_file))
+
+def bill_of_materials():
+    """ bill of materials """
+    return parser.get('Planet', 'bill_of_materials').split()
+
+def cache_directory():
+    """ cache directory """
+    return parser.get('Planet', 'cache_directory')
+
+def log_level():
+    """ log level """
+    return parser.get('Planet', 'log_level')
+
+def log_format():
+    """ log format """
+    return parser.get('Planet', 'log_format')
+
+def link():
+    """ link """
+    return parser.get('Planet', 'link')
+
+def pubsubhubbub_hub():
+    """ pubsubhubbub hub """
+    return parser.get('Planet', 'pubsubhubbub_hub')
+
+def pubsubhubbub_feeds():
+    """ pubsubhubbub feeds """
+    return parser.get('Planet', 'pubsubhubbub_feeds').split()
+
+def post_to_twitter():
+    """ post to twitter """
+    return parser.getboolean('Planet', 'post_to_twitter')
+
+def content_type(section):
+    """Get content type for a section"""
+    if parser.has_option(section, 'content_type'):
+        return parser.get(section, 'content_type')
+    return ''
+
+def exclude(section):
+    """Get exclude pattern for a section"""
+    if parser.has_option(section, 'exclude'):
+        return parser.get(section, 'exclude')
+    return None
+
+def filter(section):
+    """Get filter pattern for a section"""
+    if parser.has_option(section, 'filter'):
+        return parser.get(section, 'filter')
+    return None

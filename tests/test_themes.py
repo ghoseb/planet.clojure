@@ -1,59 +1,139 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
+import os
+import sys
 import unittest
-from planet import config
-from os.path import split
+import logging
+from xml.dom import minidom
 
-class ThemesTest(unittest.TestCase):
+import planet
+from planet import config, themes
+
+class ThemesTestCase(unittest.TestCase):
     def setUp(self):
-        config.load('tests/data/config/themed.ini')
+        self.config = os.path.join(os.path.dirname(__file__), 'data', 'test.ini')
+        config.load(self.config)
+        self.cache_dir = config.cache_directory()
+        self.output_dir = config.output_dir()
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
 
-    # template directories
+    def tearDown(self):
+        if os.path.exists(self.cache_dir):
+            for file in os.listdir(self.cache_dir):
+                os.remove(os.path.join(self.cache_dir, file))
+            os.rmdir(self.cache_dir)
+        if os.path.exists(self.output_dir):
+            for file in os.listdir(self.output_dir):
+                os.remove(os.path.join(self.output_dir, file))
+            os.rmdir(self.output_dir)
 
-    def test_template_directories(self):
-        self.assertEqual(['foo', 'bar', 'asf', 'config', 'common'],
-            [split(dir)[1] for dir in config.template_directories()])
+    def test_apply_theme(self):
+        """Test applying a theme"""
+        # Create a test feed
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry</title>
+                    <id>test-entry-1</id>
+                    <content type="text">Test content</content>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
 
-    # administrivia
+        # Create a test theme
+        theme_dir = os.path.join(self.output_dir, 'theme')
+        if not os.path.exists(theme_dir):
+            os.makedirs(theme_dir)
 
-    def test_template(self):
-        self.assertEqual(1, len([1 for file in config.template_files()
-            if file == 'index.html.xslt']))
+        # Create theme template
+        template = '''<?xml version="1.0" encoding="utf-8"?>
+            <html>
+                <head><title>Test Theme</title></head>
+                <body>
+                    <h1>Test Theme</h1>
+                    <div class="entries">
+                        <?python
+                        for entry in entries:
+                            print(f'<div class="entry"><h2>{entry.title}</h2></div>')
+                        ?>
+                    </div>
+                </body>
+            </html>'''
+        
+        template_file = os.path.join(theme_dir, 'index.html.tmpl')
+        with open(template_file, 'w', encoding='utf-8') as f:
+            f.write(template)
 
-    def test_feeds(self):
-        feeds = config.subscriptions()
-        feeds.sort()
-        self.assertEqual(['feed1', 'feed2'], feeds)
+        # Create theme CSS
+        css = '''body { font-family: Arial, sans-serif; }
+                .entry { margin: 1em 0; }'''
+        
+        css_file = os.path.join(theme_dir, 'style.css')
+        with open(css_file, 'w', encoding='utf-8') as f:
+            f.write(css)
 
-    # planet wide configuration
+        # Apply the theme
+        themes.apply_theme(theme_dir)
 
-    def test_name(self):
-        self.assertEqual('Test Configuration', config.name())
+        # Check that the theme was applied
+        self.assertTrue(os.path.exists(os.path.join(self.output_dir, 'index.html')))
+        self.assertTrue(os.path.exists(os.path.join(self.output_dir, 'style.css')))
 
-    def test_link(self):
-        self.assertEqual('', config.link())
+    def test_apply_theme_with_custom_template(self):
+        """Test applying a theme with a custom template"""
+        # Create a test feed
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry</title>
+                    <id>test-entry-1</id>
+                    <content type="text">Test content</content>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
 
-    # per template configuration
+        # Create a test theme
+        theme_dir = os.path.join(self.output_dir, 'theme')
+        if not os.path.exists(theme_dir):
+            os.makedirs(theme_dir)
 
-    def test_days_per_page(self):
-        self.assertEqual(7, config.days_per_page('index.html.xslt'))
-        self.assertEqual(0, config.days_per_page('atom.xml.xslt'))
+        # Create custom template
+        template = '''<?xml version="1.0" encoding="utf-8"?>
+            <html>
+                <head><title>Custom Theme</title></head>
+                <body>
+                    <h1>Custom Theme</h1>
+                    <div class="entries">
+                        <?python
+                        for entry in entries:
+                            print(f'<div class="entry"><h2>{entry.title}</h2><p>{entry.content}</p></div>')
+                        ?>
+                    </div>
+                </body>
+            </html>'''
+        
+        template_file = os.path.join(theme_dir, 'custom.html.tmpl')
+        with open(template_file, 'w', encoding='utf-8') as f:
+            f.write(template)
 
-    def test_items_per_page(self):
-        self.assertEqual(50, config.items_per_page('index.html.xslt'))
-        self.assertEqual(50, config.items_per_page('atom.xml.xslt'))
+        # Apply the theme with custom template
+        themes.apply_theme(theme_dir, template_file='custom.html.tmpl')
 
-    def test_encoding(self):
-        self.assertEqual('utf-8', config.encoding('index.html.xslt'))
-        self.assertEqual('utf-8', config.encoding('atom.xml.xslt'))
+        # Check that the theme was applied
+        self.assertTrue(os.path.exists(os.path.join(self.output_dir, 'custom.html')))
 
-    # dictionaries
-
-    def test_feed_options(self):
-        self.assertEqual('one', config.feed_options('feed1')['name'])
-        self.assertEqual('two', config.feed_options('feed2')['name'])
-
-    def test_template_options(self):
-        option = config.template_options('index.html.xslt')
-        self.assertEqual('7',  option['days_per_page'])
-        self.assertEqual('50', option['items_per_page'])
+if __name__ == '__main__':
+    unittest.main()

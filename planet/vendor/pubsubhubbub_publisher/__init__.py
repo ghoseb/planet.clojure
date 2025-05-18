@@ -1,2 +1,4 @@
-from pubsubhubbub_publish import *
+from .pubsubhubbub_publish import publish, PublishError
+
+__all__ = ['publish', 'PublishError']
 

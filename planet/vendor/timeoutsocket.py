@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 ####
 # Copyright 2000,2001 by Timothy O'Malley <timo@alum.mit.edu>
@@ -93,6 +94,12 @@ __author__  = "Timothy O'Malley <timo@alum.mit.edu>"
 #
 import select, string
 import socket
+import os
+import sys
+import logging
+import time
+from io import StringIO
+
 if not hasattr(socket, "_no_timeoutsocket"):
     _socket = socket.socket
 else:
@@ -104,7 +111,6 @@ else:
 # We delete 'os' and 'errno' to keep our namespace clean(er).
 # Thanks to Alex Martelli and G. Li for the Windows error codes.
 #
-import os
 if os.name == "nt":
     _IsConnected = ( 10022, 10056 )
     _ConnectBusy = ( 10035, )
@@ -132,7 +138,8 @@ def getDefaultSocketTimeout():
 # Exceptions for socket errors and timeouts
 #
 Error = socket.error
-class Timeout(Exception):
+class TimeoutError(Exception):
+    """Exception raised when a socket operation times out."""
     pass
 
 
@@ -235,7 +242,7 @@ class TimeoutSocket:
                 return self.connect(addr, dumbhack=1)
 
         # If we get here, then we should raise Timeout
-        raise Timeout("Attempted connect to %s timed out." % str(addr) )
+        raise TimeoutError("Attempted connect to %s timed out." % str(addr) )
     # end connect
 
     def accept(self, dumbhack=None):
@@ -278,7 +285,7 @@ class TimeoutSocket:
                 return self.accept(dumbhack=1)
 
         # If we get here, then we should raise Timeout
-        raise Timeout("Attempted accept timed out.")
+        raise TimeoutError("Attempted accept timed out.")
     # end accept
 
     def send(self, data, flags=0):
@@ -286,7 +293,7 @@ class TimeoutSocket:
         if self._blocking:
             r,w,e = select.select([],[sock],[], self._timeout)
             if not w:
-                raise Timeout("Send timed out")
+                raise TimeoutError("Send timed out")
         return sock.send(data, flags)
     # end send
 
@@ -295,7 +302,7 @@ class TimeoutSocket:
         if self._blocking:
             r,w,e = select.select([sock], [], [], self._timeout)
             if not r:
-                raise Timeout("Recv timed out")
+                raise TimeoutError("Recv timed out")
         return sock.recv(bufsize, flags)
     # end recv
 

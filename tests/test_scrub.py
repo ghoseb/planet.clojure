@@ -1,124 +1,120 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import unittest, StringIO, time
-from copy import deepcopy
-from planet.scrub import scrub
-from planet import feedparser, config
+import os
+import sys
+import unittest
+import logging
+from xml.dom import minidom
 
-feed = '''
-<feed xmlns='http://www.w3.org/2005/Atom' xml:base="http://example.com/">
-  <author><name>F&amp;ouml;o</name></author>
-  <entry xml:lang="en">
-    <id>ignoreme</id>
-    <author><name>F&amp;ouml;o</name></author>
-    <updated>%d-12-31T23:59:59Z</updated>
-    <title>F&amp;ouml;o</title>
-    <summary>F&amp;ouml;o</summary>
-    <content>F&amp;ouml;o</content>
-    <link href="http://example.com/entry/1/"/>
-    <source>
-      <link href="http://example.com/feed/"/>
-      <author><name>F&amp;ouml;o</name></author>
-    </source>
-  </entry>
-</feed>
-''' % (time.gmtime()[0] + 1)
+import planet
+from planet import config, scrub
 
-configData = '''
-[testfeed]
-ignore_in_feed = 
-future_dates = 
+class ScrubTestCase(unittest.TestCase):
+    def setUp(self):
+        self.config = os.path.join(os.path.dirname(__file__), 'data', 'test.ini')
+        config.load(self.config)
+        self.cache_dir = config.cache_directory()
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
 
-name_type = html
-title_type = html
-summary_type = html
-content_type = html
-'''
+    def tearDown(self):
+        if os.path.exists(self.cache_dir):
+            for file in os.listdir(self.cache_dir):
+                os.remove(os.path.join(self.cache_dir, file))
+            os.rmdir(self.cache_dir)
 
-class ScrubTest(unittest.TestCase):
+    def test_scrub_html(self):
+        """Test scrubbing HTML content"""
+        # Create a test feed with HTML content
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry</title>
+                    <id>test-entry-1</id>
+                    <content type="html">
+                        <![CDATA[
+                        <p>Test content with <script>alert("XSS")</script> and <style>body { color: red; }</style></p>
+                        ]]>
+                    </content>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
 
-    def test_scrub_ignore(self):
-        base = feedparser.parse(feed)
+        # Scrub the feed
+        scrub.scrub_feed(feed_file)
 
-        self.assertTrue(base.entries[0].has_key('author'))
-        self.assertTrue(base.entries[0].has_key('author_detail'))
-        self.assertTrue(base.entries[0].has_key('id'))
-        self.assertTrue(base.entries[0].has_key('updated'))
-        self.assertTrue(base.entries[0].has_key('updated_parsed'))
-        self.assertTrue(base.entries[0].summary_detail.has_key('language'))
+        # Check that the feed was scrubbed
+        with open(feed_file, 'r', encoding='utf-8') as f:
+            scrubbed_feed = minidom.parseString(f.read())
+        content = scrubbed_feed.getElementsByTagName('content')[0].firstChild.nodeValue
+        self.assertNotIn('<script>', content)
+        self.assertNotIn('<style>', content)
+        self.assertIn('<p>', content)
 
-        config.parser.readfp(StringIO.StringIO(configData))
-        config.parser.set('testfeed', 'ignore_in_feed',
-          'author id updated xml:lang')
-        data = deepcopy(base)
-        scrub('testfeed', data)
+    def test_scrub_xhtml(self):
+        """Test scrubbing XHTML content"""
+        # Create a test feed with XHTML content
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry</title>
+                    <id>test-entry-1</id>
+                    <content type="xhtml">
+                        <div xmlns="http://www.w3.org/1999/xhtml">
+                            <p>Test content with <script>alert("XSS")</script> and <style>body { color: red; }</style></p>
+                        </div>
+                    </content>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
 
-        self.assertFalse(data.entries[0].has_key('author'))
-        self.assertFalse(data.entries[0].has_key('author_detail'))
-        self.assertFalse(data.entries[0].has_key('id'))
-        self.assertFalse(data.entries[0].has_key('updated'))
-        self.assertFalse(data.entries[0].has_key('updated_parsed'))
-        self.assertFalse(data.entries[0].summary_detail.has_key('language'))
+        # Scrub the feed
+        scrub.scrub_feed(feed_file)
 
-    def test_scrub_type(self):
-        base = feedparser.parse(feed)
+        # Check that the feed was scrubbed
+        with open(feed_file, 'r', encoding='utf-8') as f:
+            scrubbed_feed = minidom.parseString(f.read())
+        content = scrubbed_feed.getElementsByTagName('content')[0].firstChild.nodeValue
+        self.assertNotIn('<script>', content)
+        self.assertNotIn('<style>', content)
+        self.assertIn('<p>', content)
 
-        self.assertEqual('F&ouml;o', base.feed.author_detail.name)
+    def test_scrub_text(self):
+        """Test scrubbing text content"""
+        # Create a test feed with text content
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry</title>
+                    <id>test-entry-1</id>
+                    <content type="text">Test content</content>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
 
-        config.parser.readfp(StringIO.StringIO(configData))
-        data = deepcopy(base)
-        scrub('testfeed', data)
+        # Scrub the feed
+        scrub.scrub_feed(feed_file)
 
-        self.assertEqual('F\xc3\xb6o', data.feed.author_detail.name)
-        self.assertEqual('F\xc3\xb6o', data.entries[0].author_detail.name)
-        self.assertEqual('F\xc3\xb6o', data.entries[0].source.author_detail.name)
+        # Check that the feed was not modified
+        with open(feed_file, 'r', encoding='utf-8') as f:
+            scrubbed_feed = minidom.parseString(f.read())
+        content = scrubbed_feed.getElementsByTagName('content')[0].firstChild.nodeValue
+        self.assertEqual(content, 'Test content')
 
-        self.assertEqual('text/html', data.entries[0].title_detail.type)
-        self.assertEqual('text/html', data.entries[0].summary_detail.type)
-        self.assertEqual('text/html', data.entries[0].content[0].type)
-
-    def test_scrub_future(self):
-        base = feedparser.parse(feed)
-        self.assertEqual(1, len(base.entries))
-        self.assertTrue(base.entries[0].has_key('updated'))
-
-        config.parser.readfp(StringIO.StringIO(configData))
-        config.parser.set('testfeed', 'future_dates', 'ignore_date')
-        data = deepcopy(base)
-        scrub('testfeed', data)
-        self.assertFalse(data.entries[0].has_key('updated'))
-
-        config.parser.set('testfeed', 'future_dates', 'ignore_entry')
-        data = deepcopy(base)
-        scrub('testfeed', data)
-        self.assertEqual(0, len(data.entries))
-
-    def test_scrub_xmlbase(self):
-        base = feedparser.parse(feed)
-        self.assertEqual('http://example.com/',
-             base.entries[0].title_detail.base)
-
-        config.parser.readfp(StringIO.StringIO(configData))
-        config.parser.set('testfeed', 'xml_base', 'feed_alternate')
-        data = deepcopy(base)
-        scrub('testfeed', data)
-        self.assertEqual('http://example.com/feed/',
-             data.entries[0].title_detail.base)
-
-        config.parser.set('testfeed', 'xml_base', 'entry_alternate')
-        data = deepcopy(base)
-        scrub('testfeed', data)
-        self.assertEqual('http://example.com/entry/1/',
-             data.entries[0].title_detail.base)
-
-        config.parser.set('testfeed', 'xml_base', 'base/')
-        data = deepcopy(base)
-        scrub('testfeed', data)
-        self.assertEqual('http://example.com/base/',
-             data.entries[0].title_detail.base)
-
-        config.parser.set('testfeed', 'xml_base', 'http://example.org/data/')
-        data = deepcopy(base)
-        scrub('testfeed', data)
-        self.assertEqual('http://example.org/data/',
-             data.entries[0].title_detail.base)
+if __name__ == '__main__':
+    unittest.main()

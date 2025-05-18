@@ -1,97 +1,91 @@
-#!/usr/bin/env python
-"""The Planet aggregator.
-
-A flexible and easy-to-use aggregator for generating websites.
-
-Visit http://www.planetplanet.org/ for more information and to download
-the latest version.
-
-Requires Python 2.1, recommends 2.3.
+#!/usr/bin/env python3
+"""
+Planet Venus - a flexible feed aggregator
+Requires Python 3.8 or later
 """
 
-__authors__ = [ "Scott James Remnant <scott@netsplit.com>",
-                "Jeff Waugh <jdub@perkypants.org>" ]
-__license__ = "Python"
+import os
+import sys
+import time
+import getopt
+import traceback
+from io import StringIO
+from queue import Queue
 
+# Add the current directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import os, sys
+from planet import config, spider, splice
+from planet.expunge import expungeCache
 
-if __name__ == "__main__":
-    config_file = "config.ini"
-    offline = 0
-    verbose = 0
-    only_if_new = 0
-    expunge = 0
-    debug_splice = 0
-    no_publish = 0
+def usage():
+    print("Usage: planet [options] [CONFIGFILE]")
+    print("Options:")
+    print("  -h, --help            show this help message and exit")
+    print("  -v, --verbose         verbose output")
+    print("  -o, --output-dir DIR  output directory")
+    print("  -n, --no-publish      do not publish")
+    print("  -x, --expunge         expunge cache")
+    print("  --no-publish          do not publish")
 
-    for arg in sys.argv[1:]:
-        if arg == "-h" or arg == "--help":
-            print "Usage: planet [options] [CONFIGFILE]"
-            print
-            print "Options:"
-            print " -v, --verbose       DEBUG level logging during update"
-            print " -o, --offline       Update the Planet from the cache only"
-            print " -h, --help          Display this help message and exit"
-            print " -n, --only-if-new   Only spider new feeds"
-            print " -x, --expunge       Expunge old entries from cache"
-            print " --no-publish        Do not publish feeds using PubSubHubbub"
-            print
-            sys.exit(0)
-        elif arg == "-v" or arg == "--verbose":
-            verbose = 1
-        elif arg == "-o" or arg == "--offline":
-            offline = 1
-        elif arg == "-n" or arg == "--only-if-new":
-            only_if_new = 1
-        elif arg == "-x" or arg == "--expunge":
-            expunge = 1
-        elif arg == "-d" or arg == "--debug-splice":
-            debug_splice = 1
-        elif arg == "--no-publish":
-            no_publish = 1
-        elif arg.startswith("-"):
-            print >>sys.stderr, "Unknown option:", arg
-            sys.exit(1)
-        else:
-            config_file = arg
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "hvo:nx", 
+            ["help", "verbose", "output-dir=", "no-publish", "expunge"])
+    except getopt.GetoptError as e:
+        print(e)
+        usage()
+        sys.exit(2)
 
-    from planet import config
-    config.load(config_file)
+    verbose = False
+    output_dir = None
+    no_publish = False
+    expunge = False
 
-    if verbose:
-        import planet
-        planet.getLogger('DEBUG',config.log_format())
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif opt in ("-v", "--verbose"):
+            verbose = True
+        elif opt in ("-o", "--output-dir"):
+            output_dir = arg
+        elif opt in ("-n", "--no-publish"):
+            no_publish = True
+        elif opt in ("-x", "--expunge"):
+            expunge = True
 
-    if not offline:
-        from planet import spider
-        try:
-            spider.spiderPlanet(only_if_new=only_if_new)
-        except Exception, e:
-            print e
+    if len(args) > 1:
+        usage()
+        sys.exit(2)
 
-    from planet import splice
-    doc = splice.splice()
+    config_file = args[0] if args else "config.ini"
+    if not os.path.isfile(config_file):
+        print("Error: %s not found" % config_file)
+        sys.exit(1)
 
-    if debug_splice:
-        from planet import logger
-        logger.info('writing debug.atom')
-        debug=open('debug.atom','w')
-        try:
-            from lxml import etree
-            from StringIO import StringIO
-            tree = etree.tostring(etree.parse(StringIO(doc.toxml())))
-            debug.write(etree.tostring(tree, pretty_print=True))
-        except:
-            debug.write(doc.toprettyxml(indent='  ', encoding='utf-8'))
-        debug.close
+    try:
+        config.load(config_file)
+        if output_dir:
+            config.parser.set('Planet', 'output_dir', output_dir)
+        if verbose:
+            config.parser.set('Planet', 'log_level', 'DEBUG')
 
-    splice.apply(doc.toxml('utf-8'))
+        if expunge:
+            expungeCache()
 
-    if config.pubsubhubbub_hub() and not no_publish:
-        from planet import publish
-        publish.publish(config)
+        spider.spiderPlanet()
+        splice.splicePlanet()
 
-    if expunge:
-        from planet import expunge
-        expunge.expungeCache
+        if not no_publish:
+            from planet import publish
+            publish.publish.publish(config)
+
+    except Exception as e:
+        print("Error: %s" % e)
+        if verbose:
+            traceback.print_exc()
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()

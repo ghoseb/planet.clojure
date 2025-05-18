@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 
 """ A templating engine for separation of code and HTML.
 
@@ -45,6 +46,10 @@ import urllib       # for URL escaping of variables
 import cPickle      # for template compilation
 import gettext
 import portalocker  # for locking
+import time
+import logging
+from io import StringIO
+from xml.dom import minidom
 
 INCLUDE_DIR = "inc"
 

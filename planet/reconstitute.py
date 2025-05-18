@@ -13,12 +13,13 @@ well formed XHTML.
 Todo:
   * extension elements
 """
-import re, time, sgmllib
+import re, time
+from html.parser import HTMLParser
 from xml.sax.saxutils import escape
 from xml.dom import minidom, Node
-from html5lib import html5parser
-from html5lib.treebuilders import dom
-import planet, config
+import planet
+from planet import config
+from planet import logger as log
 
 try:
   from hashlib import md5
@@ -26,6 +27,34 @@ except:
   from md5 import new as md5
 
 illegal_xml_chars = re.compile("[\x01-\x08\x0B\x0C\x0E-\x1F]", re.UNICODE)
+
+class HTMLCleaner(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.reset()
+        self.fed = []
+        self.convert_charrefs = True
+
+    def handle_data(self, d):
+        self.fed.append(d)
+
+    def handle_entityref(self, name):
+        self.fed.append('&%s;' % name)
+
+    def handle_charref(self, name):
+        self.fed.append('&#%s;' % name)
+
+    def get_data(self):
+        return ''.join(self.fed)
+
+def clean_html(html):
+    """Clean HTML by removing potentially harmful tags and attributes"""
+    if not html:
+        return ''
+    
+    s = HTMLCleaner()
+    s.feed(html)
+    return s.get_data()
 
 def createTextElement(parent, name, value):
     """ utility function to create a child element with the specified text"""
@@ -152,47 +181,30 @@ def content(xentry, name, detail, bozo):
     xdoc = xentry.ownerDocument
     xcontent = xdoc.createElement(name)
 
-    if isinstance(detail.value,unicode):
-        detail.value=detail.value.encode('utf-8')
+    if isinstance(detail.value, str):
+        value = detail.value
+    else:
+        value = str(detail.value)
 
-    if not detail.has_key('type') or detail.type.lower().find('html')<0:
-        detail['value'] = escape(detail.value)
+    if not detail.get('type') or detail.type.lower().find('html') < 0:
+        detail['value'] = escape(value)
         detail['type'] = 'text/html'
 
-    if detail.type.find('xhtml')>=0 and not bozo:
+    if detail.type.find('xhtml') >= 0 and not bozo:
         try:
-            data = minidom.parseString(xdiv % detail.value).documentElement
+            data = minidom.parseString(xdiv % value).documentElement
             xcontent.setAttribute('type', 'xhtml')
         except:
-            bozo=1
+            bozo = 1
 
-    if detail.type.find('xhtml')<0 or bozo:
-        parser = html5parser.HTMLParser(tree=dom.TreeBuilder)
-        html = parser.parse(xdiv % detail.value, encoding="utf-8")
-        for body in html.documentElement.childNodes:
-            if body.nodeType != Node.ELEMENT_NODE: continue
-            if body.nodeName != 'body': continue
-            for div in body.childNodes:
-                if div.nodeType != Node.ELEMENT_NODE: continue
-                if div.nodeName != 'div': continue
-                try:
-                    div.normalize()
-                    if len(div.childNodes) == 1 and \
-                        div.firstChild.nodeType == Node.TEXT_NODE:
-                        data = div.firstChild
-                        if illegal_xml_chars.search(data.data):
-                            data = xdoc.createTextNode(
-                                illegal_xml_chars.sub(invalidate, data.data))
-                    else:
-                        data = div
-                        xcontent.setAttribute('type', 'xhtml')
-                    break
-                except:
-                    # in extremely nested cases, the Python runtime decides
-                    # that normalize() must be in an infinite loop; mark
-                    # the content as escaped html and proceed on...
-                    xcontent.setAttribute('type', 'html')
-                    data = xdoc.createTextNode(detail.value.decode('utf-8'))
+    if detail.type.find('xhtml') < 0 or bozo:
+        # Use HTMLCleaner to clean the HTML content
+        cleaned_html = clean_html(xdiv % value)
+        try:
+            data = xdoc.createTextNode(cleaned_html)
+        except Exception:
+            data = xdoc.createTextNode(escape(cleaned_html))
+        xcontent.setAttribute('type', 'html')
 
     if data: xcontent.appendChild(data)
 

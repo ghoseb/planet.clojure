@@ -1,86 +1,91 @@
 from glob import glob
-import os, sys
+import os
+import sys
+import logging
+import dbm
+import pickle
+import planet
+from planet import config
 
 if __name__ == '__main__':
     rootdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     sys.path.insert(0, rootdir)
 
 from planet.spider import filename
-from planet import config
+from planet import logger as log
+
+def filename(id):
+    """Generate a filename for an ID"""
+    return os.path.join(config.cache_directory(), id + '.db')
 
 def open():
     try:
         cache = config.cache_directory()
-        index=os.path.join(cache,'index')
-        if not os.path.exists(index): return None
-        import anydbm
-        return anydbm.open(filename(index, 'id'),'w')
-    except Exception, e:
-        if e.__class__.__name__ == 'DBError': e = e.args[-1]
-        from planet import logger as log
+        index = os.path.join(cache, 'index')
+        if not os.path.exists(index):
+            return None
+        return dbm.open(filename(cache, 'id'), 'w')
+    except Exception as e:
+        if e.__class__.__name__ == 'DBError':
+            e = e.args[-1]
         log.error(str(e))
 
 def destroy():
-    from planet import logger as log
     cache = config.cache_directory()
-    index=os.path.join(cache,'index')
-    if not os.path.exists(index): return None
-    idindex = filename(index, 'id')
-    if os.path.exists(idindex): os.unlink(idindex)
+    index = os.path.join(cache, 'index')
+    if not os.path.exists(index):
+        return None
+    idindex = filename(cache, 'id')
+    if os.path.exists(idindex):
+        os.unlink(idindex)
     os.removedirs(index)
     log.info(idindex + " deleted")
 
 def create():
-    from planet import logger as log
-    cache = config.cache_directory()
-    index=os.path.join(cache,'index')
-    if not os.path.exists(index): os.makedirs(index)
-    import anydbm
-    index = anydbm.open(filename(index, 'id'),'c')
+    """Create an index of feed entries"""
+    cache_dir = config.cache_directory()
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+    index_file = os.path.join(cache_dir, 'idindex.db')
+    with dbm.open(index_file, 'c') as db:
+        for feed in config.parser.sections():
+            if feed.startswith('Feed '):
+                feed_file = os.path.join(cache_dir, feed.replace(' ', '_') + '.xml')
+                if os.path.exists(feed_file):
+                    with open(feed_file, 'r', encoding='utf-8') as f:
+                        data = f.read()
+                        for entry in data.split('<entry>'):
+                            if 'id>' in entry:
+                                id = entry.split('id>')[1].split('<')[0]
+                                db[id] = pickle.dumps(entry)
+    logging.info("Created index with %d entries", len(dbm.open(index_file, 'r')))
 
-    try:
-        import libxml2
-    except:
-        libxml2 = False
-        from xml.dom import minidom
+def lookup(id):
+    """Look up an entry by ID"""
+    index_file = os.path.join(config.cache_directory(), 'idindex.db')
+    if os.path.exists(index_file):
+        with dbm.open(index_file, 'r') as db:
+            if id in db:
+                return pickle.loads(db[id])
+    return None
 
-    for file in glob(cache+"/*"):
-        if os.path.isdir(file):
-            continue
-        elif libxml2:
-            try:
-                doc = libxml2.parseFile(file)
-                ctxt = doc.xpathNewContext()
-                ctxt.xpathRegisterNs('atom','http://www.w3.org/2005/Atom')
-                entry = ctxt.xpathEval('/atom:entry/atom:id')
-                source = ctxt.xpathEval('/atom:entry/atom:source/atom:id')
-                if entry and source:
-                    index[filename('',entry[0].content)] = source[0].content
-                doc.freeDoc()
-            except:
-                log.error(file)
-        else:
-            try:
-                doc = minidom.parse(file)
-                doc.normalize()
-                ids = doc.getElementsByTagName('id')
-                entry = [e for e in ids if e.parentNode.nodeName == 'entry']
-                source = [e for e in ids if e.parentNode.nodeName == 'source']
-                if entry and source:
-                    index[filename('',entry[0].childNodes[0].nodeValue)] = \
-                        source[0].childNodes[0].nodeValue
-                doc.freeDoc()
-            except:
-                log.error(file)
+def add(id, entry):
+    """Add an entry to the index"""
+    index_file = os.path.join(config.cache_directory(), 'idindex.db')
+    with dbm.open(index_file, 'c') as db:
+        db[id] = pickle.dumps(entry)
 
-    log.info(str(len(index.keys())) + " entries indexed")
-    index.close()
-
-    return open()
+def remove(id):
+    """Remove an entry from the index"""
+    index_file = os.path.join(config.cache_directory(), 'idindex.db')
+    if os.path.exists(index_file):
+        with dbm.open(index_file, 'w') as db:
+            if id in db:
+                del db[id]
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print 'Usage: %s [-c|-d]' % sys.argv[0]
+        print('Usage: %s [-c|-d]' % sys.argv[0])
         sys.exit(1)
 
     config.load(sys.argv[1])
@@ -90,10 +95,9 @@ if __name__ == '__main__':
     elif len(sys.argv) > 2 and sys.argv[2] == '-d':
         destroy()
     else:
-        from planet import logger as log
         index = open()
         if index:
-            log.info(str(len(index.keys())) + " entries indexed")
+            log.info(str(len(list(index.keys()))) + " entries indexed")
             index.close()
         else:
             log.info("no entries indexed")

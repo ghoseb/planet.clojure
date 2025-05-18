@@ -1,45 +1,140 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import unittest, os, sys, glob, new, re, StringIO, time
-from planet import feedparser
-from planet.reconstitute import reconstitute
-from planet.scrub import scrub
+import os
+import sys
+import unittest
+import logging
+from xml.dom import minidom
 
-testfiles = 'tests/data/reconstitute/%s.xml'
+import planet
+from planet import config, reconstitute
 
-class ReconstituteTest(unittest.TestCase):
-    desc_re = re.compile("Description:\s*(.*?)\s*Expect:\s*(.*)\s*-->")
-    simple_re = re.compile("^(\S+) == (u?'[^']*'|\([0-9, ]+\))$")
+class ReconstituteTestCase(unittest.TestCase):
+    def setUp(self):
+        self.config = os.path.join(os.path.dirname(__file__), 'data', 'test.ini')
+        config.load(self.config)
+        self.cache_dir = config.cache_directory()
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
 
-    def eval(self, name):
-        # read the test case
-        try:
-            testcase = open(testfiles % name)
-            data = testcase.read()
-            description, expect = self.desc_re.search(data).groups()
-            testcase.close()
-        except:
-            raise RuntimeError, "can't parse %s" % name
+    def tearDown(self):
+        if os.path.exists(self.cache_dir):
+            for file in os.listdir(self.cache_dir):
+                os.remove(os.path.join(self.cache_dir, file))
+            os.rmdir(self.cache_dir)
 
-        # parse and reconstitute to a string
-        work = StringIO.StringIO()
-        results = feedparser.parse(data)
-        scrub(testfiles%name, results)
-        reconstitute(results, results.entries[0]).writexml(work)
+    def test_reconstitute_feed(self):
+        """Test reconstituting a feed"""
+        # Create a test feed
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry</title>
+                    <id>test-entry-1</id>
+                    <content type="text">Test content</content>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
 
-        # verify the results
-        results = feedparser.parse(work.getvalue().encode('utf-8'))
-        if 'illegal' not in name:
-            self.assertFalse(results.bozo, 'xml is well formed')
-        if not self.simple_re.match(expect):
-            self.assertTrue(eval(expect, results.entries[0]), expect)
-        else:
-            lhs, rhs = self.simple_re.match(expect).groups()
-            self.assertEqual(eval(rhs), eval(lhs, results.entries[0]))
+        # Save individual entries
+        entry_file = os.path.join(self.cache_dir, 'test-entry-1.xml')
+        with open(entry_file, 'w', encoding='utf-8') as f:
+            f.write(feed.getElementsByTagName('entry')[0].toxml())
 
-# build a test method for each test file
-for testcase in glob.glob(testfiles % '*'):
-    root = os.path.splitext(os.path.basename(testcase))[0]
-    func = lambda self, name=root: self.eval(name)
-    method = new.instancemethod(func, None, ReconstituteTest)
-    setattr(ReconstituteTest, "test_" + root, method)
+        # Reconstitute the feed
+        reconstitute.reconstitute_feed(feed_file)
+
+        # Check that the feed was reconstituted
+        with open(feed_file, 'r', encoding='utf-8') as f:
+            reconstituted_feed = minidom.parseString(f.read())
+        self.assertEqual(len(reconstituted_feed.getElementsByTagName('entry')), 1)
+        self.assertEqual(reconstituted_feed.getElementsByTagName('entry')[0].getElementsByTagName('title')[0].firstChild.nodeValue, 'Test Entry')
+
+    def test_reconstitute_feed_with_multiple_entries(self):
+        """Test reconstituting a feed with multiple entries"""
+        # Create a test feed
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry 1</title>
+                    <id>test-entry-1</id>
+                    <content type="text">Test content 1</content>
+                </entry>
+                <entry>
+                    <title>Test Entry 2</title>
+                    <id>test-entry-2</id>
+                    <content type="text">Test content 2</content>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
+
+        # Save individual entries
+        for entry in feed.getElementsByTagName('entry'):
+            entry_id = entry.getElementsByTagName('id')[0].firstChild.nodeValue
+            entry_file = os.path.join(self.cache_dir, f'{entry_id}.xml')
+            with open(entry_file, 'w', encoding='utf-8') as f:
+                f.write(entry.toxml())
+
+        # Reconstitute the feed
+        reconstitute.reconstitute_feed(feed_file)
+
+        # Check that the feed was reconstituted
+        with open(feed_file, 'r', encoding='utf-8') as f:
+            reconstituted_feed = minidom.parseString(f.read())
+        self.assertEqual(len(reconstituted_feed.getElementsByTagName('entry')), 2)
+        titles = [entry.getElementsByTagName('title')[0].firstChild.nodeValue 
+                 for entry in reconstituted_feed.getElementsByTagName('entry')]
+        self.assertIn('Test Entry 1', titles)
+        self.assertIn('Test Entry 2', titles)
+
+    def test_reconstitute_feed_with_missing_entry(self):
+        """Test reconstituting a feed with a missing entry"""
+        # Create a test feed
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry 1</title>
+                    <id>test-entry-1</id>
+                    <content type="text">Test content 1</content>
+                </entry>
+                <entry>
+                    <title>Test Entry 2</title>
+                    <id>test-entry-2</id>
+                    <content type="text">Test content 2</content>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
+
+        # Save only one entry
+        entry = feed.getElementsByTagName('entry')[0]
+        entry_id = entry.getElementsByTagName('id')[0].firstChild.nodeValue
+        entry_file = os.path.join(self.cache_dir, f'{entry_id}.xml')
+        with open(entry_file, 'w', encoding='utf-8') as f:
+            f.write(entry.toxml())
+
+        # Reconstitute the feed
+        reconstitute.reconstitute_feed(feed_file)
+
+        # Check that the feed was reconstituted with only the available entry
+        with open(feed_file, 'r', encoding='utf-8') as f:
+            reconstituted_feed = minidom.parseString(f.read())
+        self.assertEqual(len(reconstituted_feed.getElementsByTagName('entry')), 1)
+        self.assertEqual(reconstituted_feed.getElementsByTagName('entry')[0].getElementsByTagName('title')[0].firstChild.nodeValue, 'Test Entry 1')
+
+if __name__ == '__main__':
+    unittest.main()

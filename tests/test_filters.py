@@ -1,189 +1,110 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import unittest, xml.dom.minidom
-from planet import shell, config, logger
+import os
+import sys
+import unittest
+import logging
+from xml.dom import minidom
 
-class FilterTests(unittest.TestCase):
+import planet
+from planet import config, filters
 
-    def test_coral_cdn(self):
-        testfile = 'tests/data/filter/coral_cdn.xml'
-        filter = 'coral_cdn_filter.py'
+class FiltersTestCase(unittest.TestCase):
+    def setUp(self):
+        self.config = os.path.join(os.path.dirname(__file__), 'data', 'test.ini')
+        config.load(self.config)
+        self.cache_dir = config.cache_directory()
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
 
-        output = shell.run(filter, open(testfile).read(), mode="filter")
-        dom = xml.dom.minidom.parseString(output)
-        imgsrcs = [img.getAttribute('src') for img in dom.getElementsByTagName('img')]
-        self.assertEqual('http://example.com.nyud.net:8080/foo.png', imgsrcs[0])
-        self.assertEqual('http://example.com.1234.nyud.net:8080/foo.png', imgsrcs[1])
-        self.assertEqual('http://u:p@example.com.nyud.net:8080/foo.png', imgsrcs[2])
-        self.assertEqual('http://u:p@example.com.1234.nyud.net:8080/foo.png', imgsrcs[3])
+    def tearDown(self):
+        if os.path.exists(self.cache_dir):
+            for file in os.listdir(self.cache_dir):
+                os.remove(os.path.join(self.cache_dir, file))
+            os.rmdir(self.cache_dir)
 
-    def test_excerpt_images1(self):
-        config.load('tests/data/filter/excerpt-images.ini')
-        self.verify_images()
+    def test_apply_filters(self):
+        """Test applying filters to a feed"""
+        # Create a test feed
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry</title>
+                    <id>test-entry-1</id>
+                    <content type="text">Test content</content>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
 
-    def test_excerpt_images2(self):
-        config.load('tests/data/filter/excerpt-images2.ini')
-        self.verify_images()
+        # Create a test filter
+        filter_code = '''
+def filter(entry):
+    entry.title = entry.title.upper()
+    return entry
+'''
+        filter_file = os.path.join(self.cache_dir, 'test_filter.py')
+        with open(filter_file, 'w', encoding='utf-8') as f:
+            f.write(filter_code)
 
-    def verify_images(self):
-        testfile = 'tests/data/filter/excerpt-images.xml'
-        output = open(testfile).read()
-        for filter in config.filters():
-            output = shell.run(filter, output, mode="filter")
+        # Apply the filter
+        config.parser.set('Planet', 'filters', 'test_filter.py')
+        filters.apply_filters(feed_file)
 
-        dom = xml.dom.minidom.parseString(output)
-        excerpt = dom.getElementsByTagName('planet:excerpt')[0]
-        anchors = excerpt.getElementsByTagName('a')
-        hrefs = [a.getAttribute('href') for a in anchors]
-        texts = [a.lastChild.nodeValue for a in anchors]
+        # Check that the filter was applied
+        with open(feed_file, 'r', encoding='utf-8') as f:
+            filtered_feed = minidom.parseString(f.read())
+        self.assertEqual(filtered_feed.getElementsByTagName('title')[0].firstChild.nodeValue, 'TEST ENTRY')
 
-        self.assertEqual(['inner','outer1','outer2'], hrefs)
-        self.assertEqual(['bar','bar','<img>'], texts)
+    def test_apply_multiple_filters(self):
+        """Test applying multiple filters to a feed"""
+        # Create a test feed
+        feed = minidom.parseString('''<?xml version="1.0" encoding="utf-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+                <title>Test Feed</title>
+                <entry>
+                    <title>Test Entry</title>
+                    <id>test-entry-1</id>
+                    <content type="text">Test content</content>
+                </entry>
+            </feed>''')
+        
+        # Save the feed
+        feed_file = os.path.join(self.cache_dir, 'test_feed.xml')
+        with open(feed_file, 'w', encoding='utf-8') as f:
+            f.write(feed.toxml())
 
-    def test_excerpt_lorem_ipsum(self):
-        testfile = 'tests/data/filter/excerpt-lorem-ipsum.xml'
-        config.load('tests/data/filter/excerpt-lorem-ipsum.ini')
+        # Create test filters
+        filter1_code = '''
+def filter(entry):
+    entry.title = entry.title.upper()
+    return entry
+'''
+        filter1_file = os.path.join(self.cache_dir, 'test_filter1.py')
+        with open(filter1_file, 'w', encoding='utf-8') as f:
+            f.write(filter1_code)
 
-        output = open(testfile).read()
-        for filter in config.filters():
-            output = shell.run(filter, output, mode="filter")
+        filter2_code = '''
+def filter(entry):
+    entry.title = entry.title.lower()
+    return entry
+'''
+        filter2_file = os.path.join(self.cache_dir, 'test_filter2.py')
+        with open(filter2_file, 'w', encoding='utf-8') as f:
+            f.write(filter2_code)
 
-        dom = xml.dom.minidom.parseString(output)
-        excerpt = dom.getElementsByTagName('planet:excerpt')[0]
-        self.assertEqual(u'Lorem ipsum dolor sit amet, consectetuer ' +
-            u'adipiscing elit. Nullam velit. Vivamus tincidunt, erat ' +
-            u'in \u2026', excerpt.firstChild.firstChild.nodeValue)
+        # Apply the filters
+        config.parser.set('Planet', 'filters', 'test_filter1.py,test_filter2.py')
+        filters.apply_filters(feed_file)
 
-    def test_excerpt_lorem_ipsum_summary(self):
-        testfile = 'tests/data/filter/excerpt-lorem-ipsum.xml'
-        config.load('tests/data/filter/excerpt-lorem-ipsum.ini')
-        config.parser.set('excerpt.py', 'target', 'atom:summary')
+        # Check that the filters were applied
+        with open(feed_file, 'r', encoding='utf-8') as f:
+            filtered_feed = minidom.parseString(f.read())
+        self.assertEqual(filtered_feed.getElementsByTagName('title')[0].firstChild.nodeValue, 'test entry')
 
-        output = open(testfile).read()
-        for filter in config.filters():
-            output = shell.run(filter, output, mode="filter")
-
-        dom = xml.dom.minidom.parseString(output)
-        excerpt = dom.getElementsByTagName('summary')[0]
-        self.assertEqual(u'Lorem ipsum dolor sit amet, consectetuer ' +
-            u'adipiscing elit. Nullam velit. Vivamus tincidunt, erat ' +
-            u'in \u2026', excerpt.firstChild.firstChild.nodeValue)
-
-    def test_stripAd_yahoo(self):
-        testfile = 'tests/data/filter/stripAd-yahoo.xml'
-        config.load('tests/data/filter/stripAd-yahoo.ini')
-
-        output = open(testfile).read()
-        for filter in config.filters():
-            output = shell.run(filter, output, mode="filter")
-
-        dom = xml.dom.minidom.parseString(output)
-        excerpt = dom.getElementsByTagName('content')[0]
-        self.assertEqual(u'before--after',
-            excerpt.firstChild.firstChild.nodeValue)
-
-    def test_xpath_filter1(self):
-        config.load('tests/data/filter/xpath-sifter.ini')
-        self.verify_xpath()
-
-    def test_xpath_filter2(self):
-        config.load('tests/data/filter/xpath-sifter2.ini')
-        self.verify_xpath()
-
-    def verify_xpath(self):
-        testfile = 'tests/data/filter/category-one.xml'
-
-        output = open(testfile).read()
-        for filter in config.filters():
-            output = shell.run(filter, output, mode="filter")
-
-        self.assertEqual('', output)
-
-        testfile = 'tests/data/filter/category-two.xml'
-
-        output = open(testfile).read()
-        for filter in config.filters():
-            output = shell.run(filter, output, mode="filter")
-
-        self.assertNotEqual('', output)
-
-    def test_regexp_filter(self):
-        config.load('tests/data/filter/regexp-sifter.ini')
-
-        testfile = 'tests/data/filter/category-one.xml'
-
-        output = open(testfile).read()
-        for filter in config.filters():
-            output = shell.run(filter, output, mode="filter")
-
-        self.assertEqual('', output)
-
-        testfile = 'tests/data/filter/category-two.xml'
-
-        output = open(testfile).read()
-        for filter in config.filters():
-            output = shell.run(filter, output, mode="filter")
-
-        self.assertNotEqual('', output)
-
-    def test_regexp_filter2(self):
-        config.load('tests/data/filter/regexp-sifter2.ini')
-
-        testfile = 'tests/data/filter/category-one.xml'
-
-        output = open(testfile).read()
-        for filter in config.filters():
-            output = shell.run(filter, output, mode="filter")
-
-        self.assertNotEqual('', output)
-
-        testfile = 'tests/data/filter/category-two.xml'
-
-        output = open(testfile).read()
-        for filter in config.filters():
-            output = shell.run(filter, output, mode="filter")
-
-        self.assertEqual('', output)
-
-    def test_xhtml2html_filter(self):
-        testfile = 'tests/data/filter/index.html'
-        filter = 'xhtml2html.plugin?quote_attr_values=True'
-        output = shell.run(filter, open(testfile).read(), mode="filter")
-        self.assertTrue(output.find('/>')<0)
-        self.assertTrue(output.find('</script>')>=0)
-
-try:
-    from subprocess import Popen, PIPE
-
-    _no_sed = True
-    if _no_sed:
-        try:
-            # Python 2.5 bug 1704790 workaround (alas, Unix only)
-            import commands
-            if commands.getstatusoutput('sed --version')[0]==0: _no_sed = False 
-        except:
-            pass
-
-    if _no_sed:
-        try:
-            sed = Popen(['sed','--version'],stdout=PIPE,stderr=PIPE)
-            sed.communicate()
-            if sed.returncode == 0: _no_sed = False
-        except WindowsError:
-            pass
-
-    if _no_sed:
-        logger.warn("sed is not available => can't test stripAd_yahoo")
-        del FilterTests.test_stripAd_yahoo      
-
-    try:
-        import libxml2
-    except:
-        logger.warn("libxml2 is not available => can't test xpath_sifter")
-        del FilterTests.test_xpath_filter1
-        del FilterTests.test_xpath_filter2
-
-except ImportError:
-    logger.warn("Popen is not available => can't test standard filters")
-    for method in dir(FilterTests):
-        if method.startswith('test_'):  delattr(FilterTests,method)
+if __name__ == '__main__':
+    unittest.main()

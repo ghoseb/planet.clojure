@@ -1,4 +1,4 @@
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 import csv
 
 # input = csv, output = ConfigParser

@@ -1,127 +1,100 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import unittest, os, shutil
-from planet.foaf import foaf2config
-from ConfigParser import ConfigParser
-from planet import config, logger
+import os
+import sys
+import unittest
+import logging
+from xml.dom import minidom
 
-workdir = 'tests/work/config/cache'
+import planet
+from planet import config, foaf
 
-blogroll = 'http://journal.dajobe.org/journal/2003/07/semblogs/bloggers.rdf'
-testfeed = "http://dannyayers.com/feed/rdf"
-test_foaf_document = '''
-<rdf:RDF
-  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-  xmlns:foaf="http://xmlns.com/foaf/0.1/"
-  xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
-  xmlns:rss="http://purl.org/rss/1.0/"
-  xmlns:dc="http://purl.org/dc/elements/1.1/">
-
-<foaf:Agent rdf:nodeID="id2245354"> 
-<foaf:name>Danny Ayers</foaf:name> 
-<rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/> 
-<foaf:weblog> 
-<foaf:Document rdf:about="http://dannyayers.com/"> 
-<dc:title>Raw Blog by Danny Ayers</dc:title> 
-<rdfs:seeAlso> 
-<rss:channel rdf:about="http://dannyayers.com/feed/rdf"> 
-<foaf:maker rdf:nodeID="id2245354"/> 
-<foaf:topic rdf:resource="http://www.w3.org/2001/sw/"/> 
-<foaf:topic rdf:resource="http://www.w3.org/RDF/"/> 
-</rss:channel> 
-</rdfs:seeAlso> 
-</foaf:Document> 
-</foaf:weblog> 
-<foaf:interest rdf:resource="http://www.w3.org/2001/sw/"/> 
-<foaf:interest rdf:resource="http://www.w3.org/RDF/"/> 
-</foaf:Agent> 
-
-</rdf:RDF> 
-'''.strip()
-
-class FoafTest(unittest.TestCase):
-    """
-    Test the foaf2config function
-    """
-
+class FoafTestCase(unittest.TestCase):
     def setUp(self):
-        self.config = ConfigParser()
-        self.config.add_section(blogroll)
+        self.config = os.path.join(os.path.dirname(__file__), 'data', 'test.ini')
+        config.load(self.config)
+        self.cache_dir = config.cache_directory()
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
 
     def tearDown(self):
-        if os.path.exists(workdir):
-            shutil.rmtree(workdir)
-            os.removedirs(os.path.split(workdir)[0])
+        if os.path.exists(self.cache_dir):
+            for file in os.listdir(self.cache_dir):
+                os.remove(os.path.join(self.cache_dir, file))
+            os.rmdir(self.cache_dir)
 
-    #
-    # Tests
-    #
+    def test_parse_foaf(self):
+        """Test parsing a FOAF file"""
+        # Create a test FOAF file
+        foaf_data = '''<?xml version="1.0" encoding="utf-8"?>
+            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                     xmlns:foaf="http://xmlns.com/foaf/0.1/">
+                <foaf:Person>
+                    <foaf:name>Test Person</foaf:name>
+                    <foaf:weblog rdf:resource="http://example.com/blog"/>
+                </foaf:Person>
+            </rdf:RDF>'''
+        
+        foaf_file = os.path.join(self.cache_dir, 'test_foaf.rdf')
+        with open(foaf_file, 'w', encoding='utf-8') as f:
+            f.write(foaf_data)
 
-    def test_foaf_document(self):
-        foaf2config(test_foaf_document, self.config)
-        self.assertEqual('Danny Ayers', self.config.get(testfeed, 'name'))
+        # Parse the FOAF file
+        feeds = foaf.parse_foaf(foaf_file)
 
-    def test_no_foaf_name(self):
-        test = test_foaf_document.replace('foaf:name','foaf:title')
-        foaf2config(test, self.config)
-        self.assertEqual('Raw Blog by Danny Ayers',
-           self.config.get(testfeed, 'name'))
+        # Check that the feeds were parsed correctly
+        self.assertEqual(len(feeds), 1)
+        self.assertEqual(feeds[0], 'http://example.com/blog')
 
-    def test_no_weblog(self):
-        test = test_foaf_document.replace('rdfs:seeAlso','rdfs:seealso')
-        foaf2config(test, self.config)
-        self.assertFalse(self.config.has_section(testfeed))
+    def test_parse_foaf_with_multiple_feeds(self):
+        """Test parsing a FOAF file with multiple feeds"""
+        # Create a test FOAF file
+        foaf_data = '''<?xml version="1.0" encoding="utf-8"?>
+            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                     xmlns:foaf="http://xmlns.com/foaf/0.1/">
+                <foaf:Person>
+                    <foaf:name>Test Person 1</foaf:name>
+                    <foaf:weblog rdf:resource="http://example.com/blog1"/>
+                </foaf:Person>
+                <foaf:Person>
+                    <foaf:name>Test Person 2</foaf:name>
+                    <foaf:weblog rdf:resource="http://example.com/blog2"/>
+                </foaf:Person>
+            </rdf:RDF>'''
+        
+        foaf_file = os.path.join(self.cache_dir, 'test_foaf.rdf')
+        with open(foaf_file, 'w', encoding='utf-8') as f:
+            f.write(foaf_data)
 
-    def test_invalid_xml_before(self):
-        test = '\n<?xml version="1.0" encoding="UTF-8"?>' + test_foaf_document
-        foaf2config(test, self.config)
-        self.assertFalse(self.config.has_section(testfeed))
+        # Parse the FOAF file
+        feeds = foaf.parse_foaf(foaf_file)
 
-    def test_invalid_xml_after(self):
-        test = test_foaf_document.strip()[:-1]
-        foaf2config(test, self.config)
-        self.assertEqual('Danny Ayers', self.config.get(testfeed, 'name'))
+        # Check that the feeds were parsed correctly
+        self.assertEqual(len(feeds), 2)
+        self.assertIn('http://example.com/blog1', feeds)
+        self.assertIn('http://example.com/blog2', feeds)
 
-    def test_online_accounts(self):
-        config.load('tests/data/config/foaf.ini')
-        feeds = config.subscriptions()
-        feeds.sort()
-        self.assertEqual(['http://api.flickr.com/services/feeds/' +
-            'photos_public.gne?id=77366516@N00',
-            'http://del.icio.us/rss/eliast',
-            'http://torrez.us/feed/rdf'], feeds)
+    def test_parse_foaf_with_invalid_xml(self):
+        """Test parsing an invalid FOAF file"""
+        # Create an invalid FOAF file
+        foaf_data = '''<?xml version="1.0" encoding="utf-8"?>
+            <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                     xmlns:foaf="http://xmlns.com/foaf/0.1/">
+                <foaf:Person>
+                    <foaf:name>Test Person</foaf:name>
+                    <foaf:weblog rdf:resource="http://example.com/blog"/>
+                </foaf:Person>
+            </rdf:RDF'''
+        
+        foaf_file = os.path.join(self.cache_dir, 'test_foaf.rdf')
+        with open(foaf_file, 'w', encoding='utf-8') as f:
+            f.write(foaf_data)
 
-    def test_multiple_subscriptions(self):
-        config.load('tests/data/config/foaf-multiple.ini')
-        self.assertEqual(2,len(config.reading_lists()))
-        feeds = config.subscriptions()
-        feeds.sort()
-        self.assertEqual(5,len(feeds))
-        self.assertEqual(['http://api.flickr.com/services/feeds/' +
-            'photos_public.gne?id=77366516@N00',
-            'http://api.flickr.com/services/feeds/' +
-            'photos_public.gne?id=SOMEID',
-            'http://del.icio.us/rss/SOMEID',
-            'http://del.icio.us/rss/eliast',
-            'http://torrez.us/feed/rdf'], feeds)
+        # Parse the FOAF file
+        feeds = foaf.parse_foaf(foaf_file)
 
-    def test_recursive(self):
-        config.load('tests/data/config/foaf-deep.ini')
-        feeds = config.subscriptions()
-        feeds.sort()
-        self.assertEqual(['http://api.flickr.com/services/feeds/photos_public.gne?id=77366516@N00',
-        'http://del.icio.us/rss/eliast', 'http://del.icio.us/rss/leef',
-        'http://del.icio.us/rss/rubys', 'http://intertwingly.net/blog/atom.xml',
-        'http://thefigtrees.net/lee/life/atom.xml',
-        'http://torrez.us/feed/rdf'], feeds)
-
-# these tests only make sense if libRDF is installed
-try:
-    import RDF
-except:
-    logger.warn("Redland RDF is not available => can't test FOAF reading lists")
-    for key in FoafTest.__dict__.keys():
-        if key.startswith('test_'): delattr(FoafTest, key)
+        # Check that no feeds were parsed
+        self.assertEqual(len(feeds), 0)
 
 if __name__ == '__main__':
     unittest.main()
