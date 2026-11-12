@@ -141,7 +141,7 @@ def _to_entry(entry: Raw, base: str) -> Entry:
         author_name=_str(author, "name") or _str(entry, "author"),
         author_email=_str(author, "email"),
         tags=tuple(term for t in _maps(entry, "tags") if (term := _str(t, "term"))),
-        date=_epoch(entry, "updated_parsed") or _epoch(entry, "published_parsed"),
+        date=_epoch(entry, "published_parsed") or _epoch(entry, "updated_parsed"),
         title_language=title_language,
         content_language=content_language or page_language,
         translations=translations,

@@ -32,8 +32,10 @@ class Entry:
     author_name: str | None = None
     author_email: str | None = None
     tags: tuple[str, ...] = ()  # category terms, for filter matching
-    # Venus semantics: `updated` if present, else `published`. None when the
-    # feed gives neither; the store then keeps a known date, else the epoch.
+    # `published` if present, else `updated`. (Venus preferred `updated`, so
+    # edited posts, and feeds that stamp every entry with their build time,
+    # put old posts on top.) None when the feed gives neither; the store then
+    # keeps a known date, else the epoch.
     date: float | None = None
     title_language: str | None = None
     content_language: str | None = None

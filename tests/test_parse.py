@@ -23,14 +23,28 @@ def test_rss() -> None:
     assert "(defn foo [])" in first.content
 
 
-def test_atom_prefers_updated_over_published() -> None:
+def test_atom_prefers_published_over_updated() -> None:
     feed = parse_feed(ATOM, "https://atom.example/feed")
     assert feed.meta.feed_id == "urn:atom-blog"
     assert feed.meta.link == "https://atom.example/"
     (entry,) = feed.entries
-    assert entry.date == ts("2026-11-05T12:00:00Z")
+    assert entry.date == ts("2026-01-01T00:00:00Z")
     # feed-level author stays on the feed; the template falls back to it
     assert feed.meta.author_name == "Ada"
+
+
+def test_build_time_updated_stamps_do_not_redate_old_posts() -> None:
+    # tarnbarford.net stamps every entry's <updated> with the feed build time.
+    body = b"""<feed xmlns="http://www.w3.org/2005/Atom"><title>t</title><id>urn:f</id>
+      <updated>2026-11-12T10:58:41Z</updated>
+      <entry><id>urn:old</id><title>Old</title><updated>2026-11-12T10:58:41Z</updated>
+        <published>2014-04-13T19:54:00Z</published></entry>
+      <entry><id>urn:new</id><title>Only updated</title>
+        <updated>2026-11-01T00:00:00Z</updated></entry>
+    </feed>"""
+    old, only_updated = parse_feed(body, "u").entries
+    assert old.date == ts("2014-04-13T19:54:00Z")
+    assert only_updated.date == ts("2026-11-01T00:00:00Z")
 
 
 def test_missing_ids_fall_back_to_link_then_hash() -> None:
