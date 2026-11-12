@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import socket
 import threading
+import time
 
 import pytest
 from aiohttp import web
@@ -51,6 +52,7 @@ Counts = dict[str, int]
 HITS = web.AppKey("hits", Counts)  # path -> requests served
 IN_FLIGHT = web.AppKey("in_flight", Counts)  # host -> current
 PEAK = web.AppKey("peak", Counts)  # host -> max concurrent
+STARTS = web.AppKey("starts", dict[str, list[float]])  # path -> monotonic start times
 
 
 def _app() -> web.Application:
@@ -58,9 +60,11 @@ def _app() -> web.Application:
     app[HITS] = {}
     app[IN_FLIGHT] = {}
     app[PEAK] = {}
+    app[STARTS] = {}
 
     def count(request: web.Request) -> None:
-        app[HITS][request.path] = app[HITS].get(request.path, 0) + 1
+        for key in {request.path, request.path_qs}:
+            app[HITS][key] = app[HITS].get(key, 0) + 1
 
     async def rss(request: web.Request) -> web.Response:
         count(request)
@@ -97,8 +101,24 @@ def _app() -> web.Application:
             app[IN_FLIGHT][host] -= 1
         return web.Response(text="ok")
 
-    async def missing(_request: web.Request) -> web.Response:
+    async def missing(request: web.Request) -> web.Response:
+        count(request)
         return web.Response(status=404)
+
+    async def stamp(request: web.Request) -> web.Response:
+        app[STARTS].setdefault(request.path, []).append(time.monotonic())
+        return web.Response(text="ok")
+
+    async def limited_once(request: web.Request) -> web.Response:
+        """429 on the first request for each query string, then the feed."""
+        count(request)
+        if app[HITS][request.path_qs] == 1:
+            return web.Response(status=429, headers={"Retry-After": "1"})
+        return web.Response(body=ATOM, content_type="application/atom+xml")
+
+    async def always_429(request: web.Request) -> web.Response:
+        count(request)
+        return web.Response(status=429)
 
     app.router.add_get("/rss.xml", rss)
     app.router.add_get("/atom.xml", atom)
@@ -107,6 +127,9 @@ def _app() -> web.Application:
     app.router.add_get("/big", big)
     app.router.add_get("/missing", missing)
     app.router.add_get("/slow", slow)
+    app.router.add_get("/stamp", stamp)
+    app.router.add_get("/limited-once", limited_once)
+    app.router.add_get("/always-429", always_429)
     return app
 
 
@@ -142,7 +165,12 @@ class FeedServer:
 
     @property
     def hits(self) -> Counts:
+        """Requests served, by path and by path + query string."""
         return self.app[HITS]
+
+    @property
+    def starts(self) -> dict[str, list[float]]:
+        return self.app[STARTS]
 
 
 @pytest.fixture(scope="session")

@@ -17,6 +17,7 @@ from pathlib import Path
 from planet import config as config_mod
 from planet.config import Config, Feed
 from planet.fetch import (
+    Deferred,
     Download,
     Failed,
     Fetched,
@@ -30,6 +31,7 @@ from planet.model import ParsedFeed
 from planet.parse import parse_feed
 from planet.render import render
 from planet.sanitize import sanitize_entry
+from planet.schedule import DEFAULT_PER_HOST_BUDGET, plan
 from planet.store import Store
 
 log = logging.getLogger("planet")
@@ -45,6 +47,10 @@ class RunStats:
     ok: int
     not_modified: int
     errors: int
+    # over their host's budget, rate limited, or cut off by the deadline;
+    # their state is left as is
+    deferred: int
+    backing_off: int  # failing feeds not due for another attempt yet
     entries_stored: int
     pruned: int
     items_rendered: int
@@ -76,18 +82,23 @@ def run(
     now: float,
     deadline: float | None,
     options: FetchOptions,
+    per_host_budget: int = DEFAULT_PER_HOST_BUDGET,
 ) -> RunStats:
     start = time.monotonic()
     store.sync_subscriptions(cfg.feeds)
 
     feeds_by_url = {f.url: f for f in cfg.feeds}
-    requests = [FetchRequest(f.url, *store.validators(f.url)) for f in cfg.feeds]
+    todo = plan(cfg.feeds, store.last_fetched(), store.backing_off(now), per_host_budget)
+    if todo.over_budget:
+        log.info("deferred %d feeds over their host's budget", len(todo.over_budget))
+    requests = [FetchRequest(f.url, *store.validators(f.url)) for f in todo.fetch]
     results = asyncio.run(
         fetch_all(requests, lambda d: prepare(feeds_by_url[d.url], d), options, deadline)
     )
     fetch_s = time.monotonic() - start
 
     stored = ok = not_modified = failed = 0
+    deferred = len(todo.over_budget)
     for r in results:
         match r:
             case Fetched(url=url, value=parsed, etag=etag, last_modified=lm):
@@ -99,9 +110,17 @@ def run(
                 store.record_not_modified(url, etag, lm, now)
                 not_modified += 1
             case Failed(url=url, error=error):
-                log.info("feed error: %s: %s", url, error)
-                store.record_error(url, error, now)
+                retry_at = store.record_error(url, error, now)
+                log.info(
+                    "feed error: %s: %s (next attempt in %.0fh)",
+                    url,
+                    error,
+                    (retry_at - now) / 3600,
+                )
                 failed += 1
+            case Deferred(url=url, reason=reason):
+                log.info("feed deferred: %s: %s", url, reason)
+                deferred += 1
     pruned = store.prune(KEEP_PER_FEED)
     store.commit()
 
@@ -110,10 +129,12 @@ def run(
     write_site(out_dir, render(s, items, store.channels(), now), static_dir)
 
     return RunStats(
-        feeds=len(results),
+        feeds=len(cfg.feeds),
         ok=ok,
         not_modified=not_modified,
         errors=failed,
+        deferred=deferred,
+        backing_off=len(todo.backing_off),
         entries_stored=stored,
         pruned=pruned,
         items_rendered=len(items),

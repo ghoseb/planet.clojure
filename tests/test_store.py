@@ -1,4 +1,6 @@
+import sqlite3
 from collections.abc import Iterator, Sequence
+from pathlib import Path
 
 import pytest
 
@@ -95,3 +97,48 @@ def test_same_entry_in_two_feeds_appears_once(store: Store) -> None:
 
 def test_channels_sorted_by_code_point_like_venus(store: Store) -> None:
     assert [c.name for c in store.channels()] == ["Alpha", "beta"]
+
+
+def test_errors_back_off_exponentially_and_success_resets(store: Store) -> None:
+    hour = 3600.0
+    assert store.record_error(A, "HTTP 404", now=0.0) == 1 * hour
+    assert store.record_error(A, "HTTP 404", now=hour) == hour + 2 * hour
+    assert store.record_error(A, "HTTP 404", now=3 * hour) == 3 * hour + 4 * hour
+    assert store.backing_off(now=3 * hour) == {A}
+    assert store.backing_off(now=7 * hour) == set()  # due again
+    store.record_success(A, FeedMeta(), None, None, now=7 * hour)
+    assert store.record_error(A, "HTTP 500", now=8 * hour) == 9 * hour  # count restarted
+
+
+def test_backing_off_allows_for_schedule_drift(store: Store) -> None:
+    store.record_error(A, "HTTP 404", now=1000.0)  # retry at 1000 + 1h
+    # the next hourly run starting a few seconds early still tries it
+    assert store.backing_off(now=1000.0 + 3600 - 5) == set()
+    assert store.backing_off(now=1000.0 + 1800) == {A}
+
+
+def test_not_modified_resets_backoff(store: Store) -> None:
+    store.record_error(A, "timed out after 20s", now=0.0)
+    store.record_error(A, "timed out after 20s", now=3600.0)
+    store.record_not_modified(A, None, None, now=4 * 3600.0)
+    assert store.record_error(A, "HTTP 500", now=5 * 3600.0) == 6 * 3600.0
+
+
+def test_open_adds_backoff_columns_to_an_existing_cache(tmp_path: Path) -> None:
+    path = tmp_path / "old.sqlite"
+    old = sqlite3.connect(path)
+    old.execute(
+        "CREATE TABLE feeds (url TEXT PRIMARY KEY, name TEXT NOT NULL, title TEXT, link TEXT, "
+        "subtitle TEXT, feed_id TEXT, updated REAL, rights TEXT, language TEXT, "
+        "author_name TEXT, author_email TEXT, etag TEXT, last_modified TEXT, "
+        "last_error TEXT, last_fetched REAL)"
+    )
+    old.execute("INSERT INTO feeds (url, name, etag) VALUES (?, 'Alpha', '\"e\"')", (A,))
+    old.commit()
+    old.close()
+
+    store = Store.open(path)
+    assert store.validators(A) == ('"e"', None)  # existing data kept
+    assert store.record_error(A, "HTTP 404", now=0.0) == 3600.0
+    store.close()
+    Store.open(path).close()  # opening again is a no-op

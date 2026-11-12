@@ -1,9 +1,12 @@
 import asyncio
 import time
 from collections.abc import Callable, Sequence
+from datetime import UTC, datetime
 
 from conftest import FeedServer
 from planet.fetch import (
+    RATE_LIMITED,
+    Deferred,
     Download,
     Failed,
     Fetched,
@@ -13,9 +16,10 @@ from planet.fetch import (
     NotModified,
     fetch_all,
     host_of,
+    retry_after_s,
 )
 
-FAST = FetchOptions(timeout_s=1.0, max_bytes=1_000_000)
+FAST = FetchOptions(timeout_s=1.0, max_bytes=1_000_000, host_interval_s=0)
 
 
 def body_len(download: Download) -> int:
@@ -103,7 +107,8 @@ def test_deadline_cancels_stragglers_and_keeps_order(server: FeedServer) -> None
         deadline=time.monotonic() + 0.5,
     )
     assert time.monotonic() - start < 2
-    assert "deadline" in error_of(hang)
+    # not the feed's fault, so not a failure
+    assert hang == Deferred(server.url("/hang"), "cancelled at run deadline")
     assert isinstance(atom, Fetched)
 
 
@@ -114,11 +119,54 @@ def test_one_request_per_host_at_a_time_hosts_in_parallel(server: FeedServer) ->
         for h in ("127.0.0.1", "localhost")
     ]
     start = time.monotonic()
-    results = run(requests, options=FetchOptions(timeout_s=5))
+    results = run(requests, options=FetchOptions(timeout_s=5, host_interval_s=0))
     elapsed = time.monotonic() - start
     assert all(isinstance(r, Fetched) for r in results)
     assert server.peak == {"127.0.0.1": 1, "localhost": 1}
     assert 0.8 <= elapsed < 1.4  # 4 x 0.2s per host, the two hosts overlap
+
+
+def test_requests_to_one_host_start_spaced_apart(server: FeedServer) -> None:
+    requests = [FetchRequest(server.url(f"/stamp?i={i}")) for i in range(3)]
+    run(requests, options=FetchOptions(timeout_s=2, host_interval_s=0.3))
+    a, b, c = server.starts["/stamp"][-3:]
+    assert b - a >= 0.28 and c - b >= 0.28
+
+
+def test_429_pauses_the_host_for_retry_after_capped_then_retries(server: FeedServer) -> None:
+    # /limited-once sends Retry-After: 1; the cap shortens the pause to 0.4s
+    options = FetchOptions(timeout_s=2, host_interval_s=0, rate_limit_pause_s=0, max_pause_s=0.4)
+    start = time.monotonic()
+    (r,) = run([FetchRequest(server.url("/limited-once?t=retry"))], options=options)
+    elapsed = time.monotonic() - start
+    assert isinstance(r, Fetched)
+    assert server.hits["/limited-once?t=retry"] == 2
+    assert 0.38 <= elapsed < 0.9
+
+
+def test_second_429_defers_the_rest_of_the_host(server: FeedServer) -> None:
+    paths = [f"/always-429?t=defer&i={i}" for i in range(4)]
+    options = FetchOptions(timeout_s=2, host_interval_s=0, rate_limit_pause_s=0.1)
+    results = run(
+        [
+            *(FetchRequest(server.url(p)) for p in paths),
+            FetchRequest(server.url("/atom.xml", "localhost")),
+        ],
+        options=options,
+    )
+    assert results[:4] == [Deferred(server.url(p), RATE_LIMITED) for p in paths]
+    assert isinstance(results[4], Fetched)  # other hosts are unaffected
+    # one 429, a pause, a second 429: then no more requests to that host
+    assert sum(server.hits.get(p, 0) for p in paths) == 2
+
+
+def test_retry_after_s() -> None:
+    now = datetime(2026, 11, 12, 7, 0, 0, tzinfo=UTC)
+    assert retry_after_s("120") == 120.0
+    assert retry_after_s("Thu, 12 Nov 2026 07:02:00 GMT", now) == 120.0
+    assert retry_after_s("Thu, 12 Nov 2026 06:00:00 GMT", now) == 0.0  # in the past
+    assert retry_after_s("soon") is None
+    assert retry_after_s(None) is None
 
 
 def test_host_of() -> None:

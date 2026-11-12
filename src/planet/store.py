@@ -11,6 +11,7 @@ import sqlite3
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
+from planet import backoff
 from planet.config import Feed
 from planet.model import Channel, Entry, FeedMeta, Item
 
@@ -30,7 +31,9 @@ CREATE TABLE IF NOT EXISTS feeds (
     etag           TEXT,
     last_modified  TEXT,
     last_error     TEXT,      -- NULL when the last fetch succeeded
-    last_fetched   REAL
+    last_fetched   REAL,
+    failures       INTEGER NOT NULL DEFAULT 0,  -- consecutive failed fetches
+    retry_at       REAL       -- don't fetch before this (epoch s); NULL = any time
 );
 CREATE TABLE IF NOT EXISTS entries (
     feed_url          TEXT NOT NULL REFERENCES feeds(url) ON DELETE CASCADE,
@@ -61,7 +64,22 @@ _META_COLUMNS = (
     "author_email",
 )
 
+# Columns added after the first release, for caches created before them:
+# (name, declaration). CREATE TABLE IF NOT EXISTS doesn't add columns.
+_ADDED_COLUMNS = (
+    ("failures", "INTEGER NOT NULL DEFAULT 0"),
+    ("retry_at", "REAL"),
+)
+
 UNDATED = 0.0  # the date given to entries that carry none: the epoch
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(feeds)")}
+    for name, declaration in _ADDED_COLUMNS:
+        if name not in existing:
+            # Only the _ADDED_COLUMNS constants are interpolated.
+            conn.execute(f"ALTER TABLE feeds ADD COLUMN {name} {declaration}")
 
 
 class Store:
@@ -74,6 +92,7 @@ class Store:
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
         conn.executescript(SCHEMA)
+        _migrate(conn)
         return cls(conn)
 
     def close(self) -> None:
@@ -116,7 +135,7 @@ class Store:
         self.conn.execute(
             # Only the _META_COLUMNS constant is interpolated; values are bound.
             f"UPDATE feeds SET {assignments}, etag = ?, last_modified = ?, "  # noqa: S608
-            "last_error = NULL, last_fetched = ? WHERE url = ?",
+            "last_error = NULL, last_fetched = ?, failures = 0, retry_at = NULL WHERE url = ?",
             (*(getattr(meta, c) for c in _META_COLUMNS), etag, last_modified, now, url),
         )
 
@@ -125,14 +144,32 @@ class Store:
     ) -> None:
         self.conn.execute(
             "UPDATE feeds SET etag = ?, last_modified = ?, last_error = NULL, "
-            "last_fetched = ? WHERE url = ?",
+            "last_fetched = ?, failures = 0, retry_at = NULL WHERE url = ?",
             (etag, last_modified, now, url),
         )
 
-    def record_error(self, url: str, error: str, now: float) -> None:
+    def record_error(self, url: str, error: str, now: float) -> float:
+        """Record a failed fetch and schedule the next attempt (exponential
+        backoff). Returns the time of the next attempt."""
+        row = self.conn.execute("SELECT failures FROM feeds WHERE url = ?", (url,)).fetchone()
+        failures = (row["failures"] if row else 0) + 1
+        retry_at = now + backoff.delay_s(failures)
         self.conn.execute(
-            "UPDATE feeds SET last_error = ?, last_fetched = ? WHERE url = ?", (error, now, url)
+            "UPDATE feeds SET last_error = ?, last_fetched = ?, failures = ?, retry_at = ? "
+            "WHERE url = ?",
+            (error, now, failures, retry_at, url),
         )
+        return retry_at
+
+    def last_fetched(self) -> dict[str, float | None]:
+        """When each feed was last requested (successfully or not)."""
+        rows = self.conn.execute("SELECT url, last_fetched FROM feeds")
+        return {r["url"]: r["last_fetched"] for r in rows}
+
+    def backing_off(self, now: float) -> set[str]:
+        """Feeds whose next attempt isn't due yet at `now`."""
+        rows = self.conn.execute("SELECT url, retry_at FROM feeds WHERE retry_at IS NOT NULL")
+        return {r["url"] for r in rows if not backoff.is_due(r["retry_at"], now)}
 
     # -- entries -------------------------------------------------------------
 
