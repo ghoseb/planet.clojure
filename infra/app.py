@@ -19,6 +19,9 @@ from infra.stack import PlanetSettings, PlanetStack
 ACCOUNT = "732295986630"
 # CloudFront certificates must live in us-east-1, so everything does.
 REGION = "us-east-1"
+# Read by the job at the start of each run, so feed changes merged on GitHub
+# need no deploy. The copy in the image is the fallback.
+CONFIG_URL = "https://raw.githubusercontent.com/ghoseb/planet.clojure/main/config.ini"
 
 
 def main() -> None:
@@ -30,6 +33,7 @@ def main() -> None:
             image_dir=Path(__file__).resolve().parent.parent,
             alarm_email="b.ghose@gmail.com",
             schedule=scheduler.ScheduleExpression.cron(minute="17"),
+            config_url=CONFIG_URL,
         ),
         env=Environment(account=ACCOUNT, region=REGION),
     )
