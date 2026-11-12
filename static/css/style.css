@@ -455,38 +455,6 @@ main {
   text-decoration: underline;
 }
 
-.search {
-  display: flex;
-}
-
-.search input[type="search"] {
-  flex: 1;
-  min-width: 0;
-  padding: 0.4rem 0.6rem;
-  border: var(--thin) solid var(--rule);
-  border-right: 0;
-  border-radius: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font: 400 0.85rem var(--mono);
-}
-
-.search button {
-  padding: 0.4rem 0.8rem;
-  border: var(--thin) solid var(--rule);
-  border-radius: 0;
-  background: var(--fg);
-  color: var(--bg);
-  font: 700 0.8rem var(--mono);
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.search button:hover {
-  background: var(--accent);
-  color: var(--accent-fg);
-}
-
 /* Footer */
 
 .site-footer {
