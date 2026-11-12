@@ -14,14 +14,14 @@ from aws_cdk import App, Environment
 from aws_cdk import aws_scheduler as scheduler
 from aws_cdk.assertions import Match, Template
 
-from infra.stack import PlanetSettings, PlanetStack
+from infra.stack import CustomDomain, PlanetSettings, PlanetStack
 
 ROOT = Path(__file__).resolve().parent.parent
 
 Resources = Mapping[str, Mapping[str, Any]]
 
 
-def synth(config_url: str | None = None) -> Template:
+def synth(config_url: str | None = None, domain: CustomDomain | None = None) -> Template:
     app = App()
     stack = PlanetStack(
         app,
@@ -31,6 +31,7 @@ def synth(config_url: str | None = None) -> Template:
             alarm_email="alarms@example.com",
             schedule=scheduler.ScheduleExpression.cron(minute="17"),
             config_url=config_url,
+            domain=domain,
         ),
         env=Environment(account="123456789012", region="us-east-1"),
     )
@@ -135,6 +136,34 @@ def test_distribution_serves_the_site_bucket_over_https(template: Template) -> N
             )
         },
     )
+
+
+def test_no_custom_domain_by_default(template: Template) -> None:
+    config = template.find_resources("AWS::CloudFront::Distribution")
+    (distribution,) = config.values()
+    assert "Aliases" not in distribution["Properties"]["DistributionConfig"]
+    assert "ViewerCertificate" not in distribution["Properties"]["DistributionConfig"]
+
+
+def test_custom_domain_names_and_certificate() -> None:
+    arn = "arn:aws:acm:us-east-1:123456789012:certificate/abc"
+    template = synth(domain=CustomDomain(("planet.example", "www.planet.example"), arn))
+    template.has_resource_properties(
+        "AWS::CloudFront::Distribution",
+        {
+            "DistributionConfig": Match.object_like(
+                {
+                    "Aliases": ["planet.example", "www.planet.example"],
+                    "ViewerCertificate": {
+                        "AcmCertificateArn": arn,
+                        "SslSupportMethod": "sni-only",
+                        "MinimumProtocolVersion": "TLSv1.2_2021",
+                    },
+                }
+            )
+        },
+    )
+    template.has_output("SiteUrl", {"Value": "https://planet.example"})
 
 
 def test_alarms_email_on_failure_slowness_and_silence(template: Template) -> None:

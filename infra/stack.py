@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from aws_cdk import CfnOutput, Duration, Environment, IgnoreMode, RemovalPolicy, Stack
+from aws_cdk import aws_certificatemanager as acm
 from aws_cdk import aws_cloudfront as cloudfront
 from aws_cdk import aws_cloudfront_origins as origins
 from aws_cdk import aws_cloudwatch as cloudwatch
@@ -39,6 +40,21 @@ SLOW_RUN = Duration.minutes(8)
 
 
 @dataclass(frozen=True)
+class CustomDomain:
+    """Host names the distribution answers to, besides its *.cloudfront.net name.
+
+    DNS is managed by hand: each name needs Route53 A and AAAA alias records
+    pointing at the distribution.
+    """
+
+    # The first name is the canonical one, used for the SiteUrl output.
+    names: tuple[str, ...]
+    # An ACM certificate in us-east-1 covering every name, created by hand
+    # with DNS validation (keep the validation records: renewal uses them).
+    certificate_arn: str
+
+
+@dataclass(frozen=True)
 class PlanetSettings:
     # Directory holding the Dockerfile for the job's image (the repo root).
     image_dir: Path
@@ -48,6 +64,8 @@ class PlanetSettings:
     # Where the job downloads config.ini from at the start of each run
     # (PLANET_CONFIG_URL). None: it uses the copy built into the image.
     config_url: str | None = None
+    # None: the site is served only on its *.cloudfront.net name.
+    domain: CustomDomain | None = None
 
 
 class PlanetStack(Stack):
@@ -91,6 +109,7 @@ class PlanetStack(Stack):
             comment="Planet Clojure",
             default_root_object="index.html",
             http_version=cloudfront.HttpVersion.HTTP2_AND_3,
+            **_custom_domain(self, settings.domain),
             default_behavior=cloudfront.BehaviorOptions(
                 origin=origins.S3BucketOrigin.with_origin_access_control(site_bucket),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -143,10 +162,26 @@ class PlanetStack(Stack):
 
         _add_alarms(self, job, settings.alarm_email)
 
-        CfnOutput(self, "SiteUrl", value=f"https://{distribution.distribution_domain_name}")
+        site_host = settings.domain.names[0] if settings.domain else None
+        CfnOutput(
+            self, "SiteUrl", value=f"https://{site_host or distribution.distribution_domain_name}"
+        )
+        CfnOutput(self, "DistributionDomainName", value=distribution.distribution_domain_name)
         CfnOutput(self, "SiteBucketName", value=site_bucket.bucket_name)
         CfnOutput(self, "CacheBucketName", value=cache_bucket.bucket_name)
         CfnOutput(self, "JobFunctionName", value=job.function_name)
+
+
+def _custom_domain(scope: Construct, domain: CustomDomain | None) -> dict[str, object]:
+    """Distribution arguments for serving on custom host names, if any."""
+    if domain is None:
+        return {}
+    return {
+        "domain_names": list(domain.names),
+        "certificate": acm.Certificate.from_certificate_arn(
+            scope, "Certificate", domain.certificate_arn
+        ),
+    }
 
 
 def _add_alarms(scope: Construct, job: lambda_.IFunction, alarm_email: str) -> None:
