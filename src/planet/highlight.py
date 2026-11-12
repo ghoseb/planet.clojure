@@ -17,14 +17,15 @@ from __future__ import annotations
 import html
 import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from functools import cache
 from typing import cast
 
 from pygments import highlight, lexers
 from pygments.formatters import HtmlFormatter
 from pygments.lexer import Lexer
-from pygments.style import Style
 from pygments.token import (
+    STANDARD_TYPES,
     Comment,
     Error,
     Generic,
@@ -34,11 +35,12 @@ from pygments.token import (
     Number,
     Operator,
     String,
-    Token,
     _TokenType,  # pyright: ignore[reportPrivateUsage]
 )
 from pygments.util import ClassNotFound
 from selectolax.lexbor import LexborHTMLParser, LexborNode
+
+from planet.tailwind import COLOURS
 
 # Class on every highlighted <pre>; the stylesheet scopes token colours to it.
 BLOCK_CLASS = "code"
@@ -127,61 +129,90 @@ def highlight_blocks(fragment: str) -> str:
     return (body.inner_html or "") if body is not None else fragment
 
 
-# Token colours. Few colours, all at least WCAG AA (4.5:1) against the code
-# background of their mode (tests check this); structure comes from weight.
-CODE_BACKGROUND = {"light": "#f0f0eb", "dark": "#1c1c1c"}
+# Token colours, all Tailwind colours (planet.tailwind) and all at least WCAG
+# AA (4.5:1) against the code background of their mode (tests check this).
+# Few hues; structure comes from weight.
+CODE_BACKGROUND = {"light": "stone-100", "dark": "stone-900"}
 
-_PALETTE: dict[str, dict[_TokenType, str]] = {
+
+@dataclass(frozen=True)
+class Ink:
+    """How a token is drawn. `colour` is a Tailwind colour name."""
+
+    colour: str | None = None
+    bold: bool = False
+    italic: bool = False
+
+
+_PALETTE: dict[str, dict[_TokenType, Ink]] = {
     "light": {
-        Comment: "italic #5c5c5c",
-        Keyword: "bold #8c1061",
-        Name.Builtin: "#5b2bb5",
-        Name.Function: "bold",
-        String: "#11632a",
-        String.Symbol: "#0a4fa8",  # Clojure keywords, :like-this
-        Number: "#8a3a00",
-        Literal: "#8a3a00",
-        Keyword.Constant: "bold #8a3a00",
-        Operator.Word: "bold #8c1061",
-        Generic.Prompt: "bold #5c5c5c",
-        Generic.Output: "#5c5c5c",
-        Error: "#b00020",
+        Comment: Ink("stone-600", italic=True),
+        Keyword: Ink("pink-800", bold=True),
+        Name.Builtin: Ink("violet-800"),
+        Name.Function: Ink(bold=True),
+        String: Ink("green-800"),
+        String.Symbol: Ink("blue-800"),  # Clojure keywords, :like-this
+        Number: Ink("orange-800"),
+        Literal: Ink("orange-800"),
+        Keyword.Constant: Ink("orange-800", bold=True),
+        Operator.Word: Ink("pink-800", bold=True),
+        Generic.Prompt: Ink("stone-600", bold=True),
+        Generic.Output: Ink("stone-600"),
+        Error: Ink("red-700"),
     },
     "dark": {
-        Comment: "italic #a3a3a3",
-        Keyword: "bold #f5a6d6",
-        Name.Builtin: "#c9b0ff",
-        Name.Function: "bold",
-        String: "#a2e3a8",
-        String.Symbol: "#93c5ff",
-        Number: "#ffb878",
-        Literal: "#ffb878",
-        Keyword.Constant: "bold #ffb878",
-        Operator.Word: "bold #f5a6d6",
-        Generic.Prompt: "bold #a3a3a3",
-        Generic.Output: "#a3a3a3",
-        Error: "#ff8a8a",
+        Comment: Ink("stone-400", italic=True),
+        Keyword: Ink("pink-300", bold=True),
+        Name.Builtin: Ink("violet-300"),
+        Name.Function: Ink(bold=True),
+        String: Ink("green-300"),
+        String.Symbol: Ink("blue-300"),
+        Number: Ink("orange-300"),
+        Literal: Ink("orange-300"),
+        Keyword.Constant: Ink("orange-300", bold=True),
+        Operator.Word: Ink("pink-300", bold=True),
+        Generic.Prompt: Ink("stone-400", bold=True),
+        Generic.Output: Ink("stone-400"),
+        Error: Ink("red-300"),
     },
 }
 
 
-def _style(mode: str) -> type[Style]:
-    return type(
-        f"{mode.title()}Code",
-        (Style,),
-        {"background_color": CODE_BACKGROUND[mode], "styles": {Token: "", **_PALETTE[mode]}},
-    )
-
-
-def palette(mode: str) -> dict[_TokenType, str]:
+def palette(mode: str) -> dict[_TokenType, Ink]:
     return _PALETTE[mode]
 
 
+def _ink(token: _TokenType, inks: dict[_TokenType, Ink]) -> Ink:
+    """A token's ink, inherited from its ancestors as in Pygments styles."""
+    lineage: list[_TokenType] = []
+    node: _TokenType | None = token
+    while node is not None:
+        lineage.append(node)
+        node = node.parent
+    ink = Ink()
+    for ancestor in reversed(lineage):
+        own = inks.get(ancestor)
+        if own is not None:
+            ink = Ink(own.colour or ink.colour, own.bold or ink.bold, own.italic or ink.italic)
+    return ink
+
+
 def _token_rules(mode: str, scope: str) -> list[str]:
-    formatter: HtmlFormatter[str] = HtmlFormatter(style=_style(mode))
-    # Untyped in the stubs: returns one CSS rule per line.
-    rules = formatter.get_token_style_defs(scope)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-    return cast("list[str]", rules)
+    """One rule per Pygments token class, as Pygments' own formatter would
+    write them, but with oklch colours (Pygments styles accept only hex)."""
+    rules: list[str] = []
+    for token, css_class in STANDARD_TYPES.items():
+        ink = _ink(token, _PALETTE[mode])
+        declarations = [
+            *([f"color: {COLOURS[ink.colour]}"] if ink.colour else []),
+            *(["font-weight: bold"] if ink.bold else []),
+            *(["font-style: italic"] if ink.italic else []),
+        ]
+        if css_class and declarations:
+            name = str(token).removeprefix("Token.")
+            label = f"{name}, {ink.colour}" if ink.colour else name
+            rules.append(f"{scope} .{css_class} {{ {'; '.join(declarations)} }} /* {label} */")
+    return rules
 
 
 def stylesheet() -> str:

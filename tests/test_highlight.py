@@ -1,3 +1,4 @@
+import math
 import re
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from planet.highlight import (
     palette,
     stylesheet,
 )
+from planet.tailwind import COLOURS
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -91,13 +93,26 @@ def test_stylesheet_has_both_modes() -> None:
     assert "pre.code .ss {" in light  # Clojure keywords
 
 
-def _luminance(hex_colour: str) -> float:
-    def channel(c: int) -> float:
-        s = c / 255
-        return s / 12.92 if s <= 0.03928 else ((s + 0.055) / 1.055) ** 2.4
+_OKLCH = re.compile(r"oklch\(([\d.]+)%\s+([\d.]+)\s+([\d.]+)\)")
 
-    r, g, b = (int(hex_colour[i : i + 2], 16) for i in (1, 3, 5))
-    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+def _luminance(oklch: str) -> float:
+    """WCAG relative luminance of an oklch colour, clipped to sRGB."""
+    match = _OKLCH.fullmatch(oklch)
+    assert match, oklch
+    lightness, chroma, hue = (float(g) for g in match.groups())
+    lightness /= 100
+    a, b = chroma * math.cos(math.radians(hue)), chroma * math.sin(math.radians(hue))
+    l_ = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3
+    m_ = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3
+    s_ = (lightness - 0.0894841775 * a - 1.2914855480 * b) ** 3
+    linear = (
+        4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_,
+        -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_,
+        -0.0041960863 * l_ - 0.7034186147 * m_ + 1.7076147010 * s_,
+    )
+    r, g, b = (min(1.0, max(0.0, c)) for c in linear)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
 def contrast(a: str, b: str) -> float:
@@ -105,25 +120,53 @@ def contrast(a: str, b: str) -> float:
     return (hi + 0.05) / (lo + 0.05)
 
 
+def test_luminance_matches_known_colours() -> None:
+    assert _luminance("oklch(100% 0 0)") == pytest.approx(1.0, abs=1e-4)
+    assert _luminance("oklch(0% 0 0)") == pytest.approx(0.0, abs=1e-6)
+    assert contrast("oklch(100% 0 0)", "oklch(0% 0 0)") == pytest.approx(21.0, abs=0.01)
+
+
 @pytest.mark.parametrize("mode", ["light", "dark"])
 def test_token_colours_meet_wcag_aa(mode: str) -> None:
-    background = CODE_BACKGROUND[mode]
-    for token, style in palette(mode).items():
-        for colour in re.findall(r"#[0-9a-fA-F]{6}", style):
-            assert contrast(colour, background) >= 4.5, (mode, token, colour)
+    background = COLOURS[CODE_BACKGROUND[mode]]
+    for token, ink in palette(mode).items():
+        if ink.colour:
+            assert contrast(COLOURS[ink.colour], background) >= 4.5, (mode, token, ink)
+
+
+def test_stylesheet_uses_tailwind_colours() -> None:
+    css = stylesheet()
+    assert "#" not in css
+    used = set(re.findall(r"oklch\([^)]*\)", css))
+    assert used and used <= set(COLOURS.values())
+    assert (
+        "pre.code .ss { color: oklch(42.4% 0.199 265.638) } /* Literal.String.Symbol, blue-800 */"
+        in css
+    )
+    assert "pre.code .kc { color: oklch(47% 0.157 37.304); font-weight: bold }" in css  # own ink
+    assert "pre.code .kd { color: oklch(45.9% 0.187 3.815); font-weight: bold }" in css  # inherited
+
+
+# `--name: oklch(...); /* tailwind-name ... */`
+_CSS_COLOUR = re.compile(r"--([\w-]+):\s*(oklch\([^)]*\));\s*/\*\s*([a-z]+-\d+)")
 
 
 def _css_variables(block: str) -> dict[str, str]:
-    return dict(re.findall(r"--([\w-]+):\s*(#[0-9a-fA-F]{6})", block))
+    colours: dict[str, str] = {}
+    for name, value, tailwind_name in _CSS_COLOUR.findall(block):
+        assert COLOURS[tailwind_name] == value, (name, tailwind_name)
+        colours[name] = value
+    return colours
 
 
 def test_page_colours_meet_wcag_aa_and_match_the_code_background() -> None:
     css = (ROOT / "static" / "css" / "style.css").read_text()
+    assert not re.search(r":\s*#[0-9a-fA-F]{3,8}\b", css), "colours are Tailwind oklch values"
     root, rest = css.split("@media (prefers-color-scheme: dark)", 1)
     light = _css_variables(root)
     dark = light | _css_variables(rest.split("}", 2)[0] + "}")
     for mode, colours in (("light", light), ("dark", dark)):
-        assert colours["code-bg"].lower() == CODE_BACKGROUND[mode], mode
+        assert colours["code-bg"] == COLOURS[CODE_BACKGROUND[mode]], mode
         for fg, bg in [
             ("fg", "bg"), ("muted", "bg"), ("fg", "code-bg"), ("accent-fg", "accent"),
         ]:  # fmt: skip

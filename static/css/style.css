@@ -56,16 +56,16 @@
 
 :root {
   color-scheme: light dark;
-  --bg: #fafaf7;
-  --fg: #0a0a0a;
-  --muted: #4d4d4d;
-  --rule: #0a0a0a;
-  --accent: #ffd500;
-  --accent-fg: #0a0a0a;
-  --code-bg: #f0f0eb; /* keep in sync with planet.highlight.CODE_BACKGROUND */
+  /* Tailwind v4 colours (planet.tailwind); each names its Tailwind colour. */
+  --bg: oklch(98.5% 0.001 106.423); /* stone-50 */
+  --fg: oklch(14.7% 0.004 49.25); /* stone-950 */
+  --muted: oklch(44.4% 0.011 73.639); /* stone-600 */
+  --rule: oklch(14.7% 0.004 49.25); /* stone-950 */
+  --accent: oklch(87.9% 0.169 91.605); /* amber-300 */
+  --accent-fg: oklch(14.7% 0.004 49.25); /* stone-950 */
+  --code-bg: oklch(97% 0.001 106.424); /* stone-100, as planet.highlight.CODE_BACKGROUND */
   --sans: "Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --measure: 70ch;
   --gutter: clamp(1rem, 4vw, 3rem);
   --thick: 6px;
   --thin: 3px;
@@ -73,12 +73,12 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111111;
-    --fg: #ececec;
-    --muted: #b0b0b0;
-    --rule: #ececec;
-    --accent-fg: #111111;
-    --code-bg: #1c1c1c;
+    --bg: oklch(14.7% 0.004 49.25); /* stone-950 */
+    --fg: oklch(92.3% 0.003 48.717); /* stone-200 */
+    --muted: oklch(70.9% 0.01 56.259); /* stone-400 */
+    --rule: oklch(92.3% 0.003 48.717); /* stone-200 */
+    --accent-fg: oklch(14.7% 0.004 49.25); /* stone-950 */
+    --code-bg: oklch(21.6% 0.006 56.043); /* stone-900 */
   }
 }
 
@@ -231,7 +231,7 @@ main {
 /* Entries */
 
 .entry {
-  max-width: var(--measure);
+  max-width: 115ch;
   padding: 2.5rem 0;
   border-bottom: var(--thin) solid var(--rule);
 }
