@@ -9,6 +9,9 @@ build/
 # local run artifacts (cache, rendered output, measurement results, floci data)
 local/
 
+# CDK synth output
+cdk.out/
+
 .DS_Store
 .pi/
 browser-data/

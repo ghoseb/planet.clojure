@@ -1,10 +1,23 @@
+# Everything the Dockerfile doesn't copy. CDK hashes the build context to
+# decide whether to rebuild the image, so unrelated files belong here too.
+# (A "*" + "!keep" allowlist would be nicer, but CDK's matcher ignores it.)
 .git
+.gitignore
+.dockerignore
 .venv
 .pi
-local
+.ruff_cache
+.pytest_cache
 browser-data
+local
+cdk.out
+cdk.json
+compose.yaml
+infra
+tests
+scripts
+vulture_whitelist.py
 **/__pycache__
-**/.pytest_cache
 static/sass
 static/*.rb
 static/.sass-cache

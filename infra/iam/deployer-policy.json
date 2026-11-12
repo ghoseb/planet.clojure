@@ -1,0 +1,63 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DeployViaCdkBootstrapRoles",
+      "Effect": "Allow",
+      "Action": [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ],
+      "Resource": [
+        "arn:aws:iam::732295986630:role/cdk-hnb659fds-deploy-role-732295986630-us-east-1",
+        "arn:aws:iam::732295986630:role/cdk-hnb659fds-file-publishing-role-732295986630-us-east-1",
+        "arn:aws:iam::732295986630:role/cdk-hnb659fds-image-publishing-role-732295986630-us-east-1",
+        "arn:aws:iam::732295986630:role/cdk-hnb659fds-lookup-role-732295986630-us-east-1"
+      ]
+    },
+    {
+      "Sid": "ReadStackOutputs",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:DescribeStacks"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:us-east-1:732295986630:stack/PlanetClojure/*"
+      ]
+    },
+    {
+      "Sid": "RunJob",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:GetFunctionConfiguration",
+        "lambda:InvokeFunction"
+      ],
+      "Resource": [
+        "arn:aws:lambda:us-east-1:732295986630:function:PlanetClojure-*"
+      ]
+    },
+    {
+      "Sid": "ReadJobLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:FilterLogEvents",
+        "logs:GetLogEvents",
+        "logs:StartLiveTail"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-1:732295986630:log-group:PlanetClojure-*"
+      ]
+    },
+    {
+      "Sid": "InspectBuckets",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::planetclojure-*"
+      ]
+    }
+  ]
+}

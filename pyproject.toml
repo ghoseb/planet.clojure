@@ -23,6 +23,14 @@ dev = [
     "ruff>=0.17.4",
     "vulture>=2.16",
 ]
+infra = [
+    "aws-cdk-lib>=2.276.0",
+    "constructs>=10.8.1",
+]
+
+[tool.uv]
+# infra (CDK) is installed for local work; the Lambda image excludes it.
+default-groups = ["dev", "infra"]
 
 [build-system]
 requires = ["hatchling"]
@@ -33,16 +41,17 @@ packages = ["src/planet"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # so tests can import the infra package
 
 [tool.basedpyright]
-include = ["src", "tests"]  # scripts/measure.py: one-off, unchecked
+include = ["src", "tests", "infra"]  # scripts/measure.py: one-off, unchecked
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests"]
+src = ["src", "tests", "."]
 extend-exclude = ["vulture_whitelist.py"]  # bare attribute references by design
 
 [tool.ruff.lint]
@@ -68,5 +77,5 @@ select = [
 ]
 
 [tool.vulture]
-paths = ["src", "tests", "vulture_whitelist.py"]
+paths = ["src", "tests", "infra", "vulture_whitelist.py"]
 min_confidence = 60
