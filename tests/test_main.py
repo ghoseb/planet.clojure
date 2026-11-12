@@ -3,8 +3,8 @@ from pathlib import Path
 
 from conftest import FeedServer
 from planet.config import Config, parse
-from planet.fetch import FetchOptions
-from planet.main import run
+from planet.fetch import Download, FetchOptions
+from planet.main import prepare, run
 from planet.store import Store
 
 
@@ -102,3 +102,19 @@ def test_host_budget_rotates_through_feeds(server: FeedServer, tmp_path: Path) -
     assert go(now=2000.0) == 1  # the feed left over goes first, then the oldest
     assert [server.hits.get(p, 0) for p in paths] == [2, 1, 1]
     store.close()
+
+
+def test_filter_runs_on_sanitized_entries() -> None:
+    feed = parse(
+        "[Planet]\nname = P\nlink = https://planet.example/\n\n"
+        "[https://f.example/rss]\nname = F\nfilter = Clojure\n"
+    ).feeds[0]
+    rss = b"""<?xml version="1.0"?><rss version="2.0"><channel><title>F</title>
+      <item><guid isPermaLink="false">a</guid><title>Kept</title>
+        <description>&lt;p&gt;Clojure tips&lt;/p&gt;</description></item>
+      <item><guid isPermaLink="false">b</guid><title>Dropped</title>
+        <description>&lt;p&gt;hi&lt;/p&gt;&lt;script&gt;Clojure()&lt;/script&gt;</description></item>
+    </channel></rss>"""
+    parsed = prepare(feed, Download(feed.url, rss, "application/rss+xml"))
+    # "Clojure" only inside <script>, which the sanitizer removes
+    assert [e.title for e in parsed.entries] == ["Kept"]

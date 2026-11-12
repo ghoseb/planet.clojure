@@ -28,7 +28,7 @@ class Entry:
     title: str  # may contain HTML when parsed
     link: str | None
     content: str  # HTML: content if present, else summary
-    summary: str | None = None  # kept only for filter matching
+    summary: str | None = None  # HTML; read by filters, never rendered or stored
     author_name: str | None = None
     author_email: str | None = None
     tags: tuple[str, ...] = ()  # category terms, for filter matching

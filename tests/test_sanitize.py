@@ -36,9 +36,9 @@ def test_sanitize_entry() -> None:
             title="<i>T</i>",
             link=None,
             content="<script>x</script><p>ok</p>",
-            summary="s",
+            summary='<p onclick="x()">s</p>',
         )
     )
     assert e.title == "T"
     assert e.content == "<p>ok</p>"
-    assert e.summary is None
+    assert e.summary == "<p>s</p>"  # sanitized, kept for filters

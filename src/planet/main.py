@@ -59,9 +59,10 @@ class RunStats:
 
 
 def prepare(feed: Feed, download: Download) -> ParsedFeed:
-    """Parse, apply the feed's filter, sanitize. Runs in a worker thread."""
+    """Parse, sanitize, then apply the feed's filter (Venus filtered the
+    scrubbed entry too). Runs in a worker thread."""
     parsed = parse_feed(download.content, feed.url, download.content_type)
-    entries = tuple(sanitize_entry(e) for e in parsed.entries if keep(feed, e))
+    entries = tuple(e for e in map(sanitize_entry, parsed.entries) if keep(feed, e))
     return ParsedFeed(meta=parsed.meta, entries=entries)
 
 

@@ -30,5 +30,7 @@ def sanitize_entry(entry: Entry) -> Entry:
         entry,
         title=plain_text(entry.title),
         content=clean_html(entry.content),
-        summary=None,  # only needed for filtering, which happens before this
+        # Not rendered or stored, but filters read it (after sanitizing, as
+        # in Venus).
+        summary=clean_html(entry.summary) if entry.summary else None,
     )

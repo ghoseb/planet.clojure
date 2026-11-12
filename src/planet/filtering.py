@@ -2,8 +2,11 @@
 
 The regexes are matched (case-sensitive `re.search`) against the entry's
 human-readable text: title, content, summary, author and category terms,
-plus the text of alt/title attributes. Markup is stripped, entities decoded,
-whitespace collapsed. Every pattern must match for the entry to be kept.
+plus the text of alt/title attributes. Entries are filtered after
+sanitizing, as Venus did, so text the sanitizer removes (scripts, styles)
+can't match. Markup is stripped from the HTML fields (content, summary) and
+entities decoded; the title is already plain text by then. Whitespace is
+collapsed. Every pattern must match for the entry to be kept.
 """
 
 from __future__ import annotations
@@ -26,8 +29,15 @@ def _strip_markup(fragment: str) -> str:
 
 
 def readable_text(entry: Entry) -> str:
-    parts = [entry.title, entry.content, entry.summary or "", entry.author_name or "", *entry.tags]
-    text = " ".join(_strip_markup(p) for p in parts if p)
+    """Expects a sanitized entry: plain-text title, HTML content/summary."""
+    parts = [
+        entry.title,
+        _strip_markup(entry.content),
+        _strip_markup(entry.summary or ""),
+        entry.author_name or "",
+        *entry.tags,
+    ]
+    text = " ".join(p for p in parts if p)
     return _SPACE.sub(" ", text).strip()
 
 

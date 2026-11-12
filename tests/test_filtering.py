@@ -35,8 +35,15 @@ def test_ignores_markup_and_links_but_reads_alt_text() -> None:
 
 
 def test_entities_decoded_and_whitespace_collapsed() -> None:
-    text = readable_text(entry(title="a &amp;\n\n b", content="<p>c</p>"))
-    assert text == "a & b c"
+    text = readable_text(entry(title="a &\n\n b", content="<p>c &amp; d</p>"))
+    assert text == "a & b c & d"
+
+
+def test_title_is_plain_text_after_sanitizing() -> None:
+    # a sanitized title keeps literal "<...>" and "&lt;": not markup, not entities
+    assert (
+        readable_text(entry(title="Using <div> in Hiccup &lt;3")) == "Using <div> in Hiccup &lt;3"
+    )
 
 
 def test_all_patterns_must_match() -> None:
