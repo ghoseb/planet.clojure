@@ -114,6 +114,7 @@ class PlanetStack(Stack):
                 origin=origins.S3BucketOrigin.with_origin_access_control(site_bucket),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+                response_headers_policy=_security_headers(self),
                 compress=True,
             ),
         )
@@ -170,6 +171,35 @@ class PlanetStack(Stack):
         CfnOutput(self, "SiteBucketName", value=site_bucket.bucket_name)
         CfnOutput(self, "CacheBucketName", value=cache_bucket.bucket_name)
         CfnOutput(self, "JobFunctionName", value=job.function_name)
+
+
+def _security_headers(scope: Construct) -> cloudfront.ResponseHeadersPolicy:
+    """The security headers the old nginx server sent, on every response.
+
+    HSTS keeps the old server's includeSubDomains and preload, which browsers
+    and the preload list already hold for the domain. The site runs no
+    scripts, so X-XSS-Protection (obsolete; browsers ignore it) is dropped.
+    """
+    return cloudfront.ResponseHeadersPolicy(
+        scope,
+        "SecurityHeaders",
+        comment="Planet Clojure security headers",
+        security_headers_behavior=cloudfront.ResponseSecurityHeadersBehavior(
+            strict_transport_security=cloudfront.ResponseHeadersStrictTransportSecurity(
+                access_control_max_age=Duration.days(365),
+                include_subdomains=True,
+                preload=True,
+                override=True,
+            ),
+            frame_options=cloudfront.ResponseHeadersFrameOptions(
+                frame_option=cloudfront.HeadersFrameOption.DENY, override=True
+            ),
+            content_type_options=cloudfront.ResponseHeadersContentTypeOptions(override=True),
+            referrer_policy=cloudfront.ResponseHeadersReferrerPolicy(
+                referrer_policy=cloudfront.HeadersReferrerPolicy.ORIGIN, override=True
+            ),
+        ),
+    )
 
 
 def _custom_domain(scope: Construct, domain: CustomDomain | None) -> dict[str, object]:

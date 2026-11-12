@@ -130,20 +130,25 @@
       "Action": [
         "cloudfront:CreateDistribution",
         "cloudfront:CreateOriginAccessControl",
+        "cloudfront:CreateResponseHeadersPolicy",
         "cloudfront:DeleteDistribution",
         "cloudfront:DeleteOriginAccessControl",
+        "cloudfront:DeleteResponseHeadersPolicy",
         "cloudfront:GetDistribution",
         "cloudfront:GetDistributionConfig",
         "cloudfront:GetOriginAccessControl",
+        "cloudfront:GetResponseHeadersPolicy",
         "cloudfront:ListTagsForResource",
         "cloudfront:TagResource",
         "cloudfront:UntagResource",
         "cloudfront:UpdateDistribution",
-        "cloudfront:UpdateOriginAccessControl"
+        "cloudfront:UpdateOriginAccessControl",
+        "cloudfront:UpdateResponseHeadersPolicy"
       ],
       "Resource": [
         "arn:aws:cloudfront::732295986630:distribution/*",
-        "arn:aws:cloudfront::732295986630:origin-access-control/*"
+        "arn:aws:cloudfront::732295986630:origin-access-control/*",
+        "arn:aws:cloudfront::732295986630:response-headers-policy/*"
       ]
     },
     {

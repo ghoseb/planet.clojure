@@ -138,6 +138,42 @@ def test_distribution_serves_the_site_bucket_over_https(template: Template) -> N
     )
 
 
+def test_every_response_carries_the_security_headers(template: Template) -> None:
+    template.has_resource_properties(
+        "AWS::CloudFront::ResponseHeadersPolicy",
+        {
+            "ResponseHeadersPolicyConfig": Match.object_like(
+                {
+                    "SecurityHeadersConfig": {
+                        "StrictTransportSecurity": {
+                            "AccessControlMaxAgeSec": 31536000,
+                            "IncludeSubdomains": True,
+                            "Preload": True,
+                            "Override": True,
+                        },
+                        "FrameOptions": {"FrameOption": "DENY", "Override": True},
+                        "ContentTypeOptions": {"Override": True},
+                        "ReferrerPolicy": {"ReferrerPolicy": "origin", "Override": True},
+                    }
+                }
+            )
+        },
+    )
+    (policy_id,) = resources(template, "AWS::CloudFront::ResponseHeadersPolicy")
+    template.has_resource_properties(
+        "AWS::CloudFront::Distribution",
+        {
+            "DistributionConfig": Match.object_like(
+                {
+                    "DefaultCacheBehavior": Match.object_like(
+                        {"ResponseHeadersPolicyId": {"Ref": policy_id}}
+                    )
+                }
+            )
+        },
+    )
+
+
 def test_no_custom_domain_by_default(template: Template) -> None:
     config = template.find_resources("AWS::CloudFront::Distribution")
     (distribution,) = config.values()
