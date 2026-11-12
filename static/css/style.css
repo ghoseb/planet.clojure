@@ -153,10 +153,32 @@ a:hover {
 }
 
 .site-title {
-  margin: 0;
-  font: 700 clamp(2.2rem, 7vw, 4.5rem) / 0.95 var(--mono);
+  margin: 0 0 0 -0.075em; /* the font's left side bearing: ink starts at the edge */
+  font: 700 var(--title-size) / var(--title-leading) var(--mono);
   letter-spacing: -0.04em;
   text-transform: uppercase;
+}
+
+/* Logo beside the title and tagline, as tall as both together. */
+/* The logo is as tall as one line of title plus one line of tagline,
+   computed from the same values that set those lines. */
+.brand {
+  --title-size: clamp(2.2rem, 7vw, 4.5rem);
+  --title-leading: 0.95;
+  --tagline-size: 0.9rem;
+  --tagline-leading: 1.4;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 1rem;
+  align-items: start;
+}
+
+.brand .logo {
+  grid-row: 1 / span 2;
+  height: calc(
+    var(--title-size) * var(--title-leading) + var(--tagline-size) * var(--tagline-leading)
+  );
+  width: auto;
 }
 
 .site-title a {
@@ -164,8 +186,8 @@ a:hover {
 }
 
 .tagline {
-  margin: 0.75rem 0 0;
-  font: 400 0.9rem/1.4 var(--mono);
+  margin: 0;
+  font: 400 var(--tagline-size) / var(--tagline-leading) var(--mono);
   color: var(--muted);
 }
 

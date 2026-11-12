@@ -18,6 +18,3 @@ tests
 scripts
 vulture_whitelist.py
 **/__pycache__
-static/sass
-static/*.rb
-static/.sass-cache

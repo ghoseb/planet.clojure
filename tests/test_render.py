@@ -140,3 +140,15 @@ def test_index_drops_a_repeated_title_but_atom_keeps_it() -> None:
     assert "<h1>" not in out["index.html"]
     content_el = find(find(ET.fromstring(out["atom.xml"].encode()), "a:entry"), "a:content")
     assert content_el.text == content
+
+
+def test_header_logo_and_footer_credit() -> None:
+    html = pages()["index.html"]
+    assert (
+        '<div class="brand">\n        <img class="logo" src="/static/i/planet-logo.svg" alt=""'
+        in html
+    )
+    assert (
+        'Planet Clojure logo designed by <a href="https://tonsky.me/design/">Nikita Tonsky</a>.'
+        in html
+    )

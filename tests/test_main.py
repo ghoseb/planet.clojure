@@ -34,8 +34,6 @@ def test_end_to_end_twice(server: FeedServer, tmp_path: Path) -> None:
     (static / "css").mkdir(parents=True)
     (static / "css" / "screen.css").write_text("body{}")
     (static / "css" / "style.css").write_text("main{}")
-    (static / "sass").mkdir()
-    (static / "sass" / "x.sass").write_text("")
     out = tmp_path / "out"
     store = Store.open(tmp_path / "cache.sqlite")
     options = FetchOptions(timeout_s=2, host_interval_s=0)
@@ -51,7 +49,6 @@ def test_end_to_end_twice(server: FeedServer, tmp_path: Path) -> None:
     assert 'class="message" title="HTTP 404">Dead Blog</a>' in html
     assert (out / "atom.xml").exists()
     assert (out / "static" / "css" / "screen.css").exists()
-    assert not (out / "static" / "sass").exists()
     # style.css is published only under its content hash, which the page links
     (css,) = (out / "static" / "css").glob("style.*.css")
     assert css.read_text().startswith("main{}")

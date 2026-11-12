@@ -21,7 +21,8 @@
     <a class="skip" href="#content">Skip to posts</a>
 
     <header class="site-header">
-      <div>
+      <div class="brand">
+        <img class="logo" src="/static/i/planet-logo.svg" alt="" width="220" height="220">
         <p class="site-title"><a href="{{ link }}">{{ name }}</a></p>
         <p class="tagline">Posts from blogs about Clojure, collected every hour.</p>
       </div>
@@ -110,6 +111,7 @@
     <footer class="site-footer">
       <p>{{ name }} is maintained by <a href="http://freegeek.in/">Baishampayan Ghose</a> and <a href="http://alexott.net/en/index.html">Alex Ott</a>. <a href="https://github.com/ghoseb/planet.clojure">Source on GitHub</a>.</p>
       <p>Posts are copyright their authors. Clojure and the Clojure logo are copyright Rich Hickey.</p>
+      <p>Planet Clojure logo designed by <a href="https://tonsky.me/design/">Nikita Tonsky</a>.</p>
       <p>Updated <time datetime="{{ now | iso }}">{{ now | date(date_format) }}</time> UTC.</p>
     </footer>
   </body>

@@ -41,7 +41,7 @@ log = logging.getLogger("planet")
 KEEP_PER_FEED = 10
 # Static source files that aren't served (Compass/Sass sources).
 # style.css is published hashed (planet.assets), not as is.
-STATIC_IGNORE = shutil.ignore_patterns("sass", "*.rb", ".sass-cache", "style.css")
+STATIC_IGNORE = shutil.ignore_patterns("style.css")
 
 
 @dataclass(frozen=True)
