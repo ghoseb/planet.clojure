@@ -3,8 +3,6 @@
 This is the source code of [Planet Clojure](https://planet.clojure.in),
 which collects posts from blogs about Clojure into one page and one Atom feed.
 
-The template of Planet Clojure was designed by [Brajeshwar](https://brajeshwar.com); so all credit goes to him.
-
 ## Adding yourself to Planet Clojure
 
 If you have a blog on Clojure and want to feature on Planet Clojure, fork this project on GitHub,
