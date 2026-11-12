@@ -4,7 +4,10 @@ Environment:
   SITE_BUCKET     bucket served by CloudFront (required)
   CACHE_BUCKET    private bucket holding the cache (required)
   CACHE_KEY       default "planet/cache.sqlite"
-  CONFIG_PATH     default "config.ini" (relative to the task root)
+  PLANET_CONFIG_URL  where to download config.ini from at the start of each
+                  run; when unset, empty or unusable, CONFIG_PATH is used
+  CONFIG_PATH     the config.ini built into the image; default "config.ini"
+                  (relative to the task root)
   STATIC_DIR      default "static"
   RESERVE_SECONDS time kept back from the fetch deadline for merge, render
                   and upload; default 120
@@ -26,7 +29,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import boto3
 
-from planet import config as config_mod
+from planet.config_source import resolve
 from planet.fetch import FetchOptions
 from planet.main import run
 from planet.publish import publish_site, pull_cache, push_cache
@@ -61,7 +64,7 @@ class LambdaContext(Protocol):
     def get_remaining_time_in_millis(self) -> int: ...
 
 
-def handler(_event: object, context: LambdaContext) -> dict[str, int | float]:
+def handler(_event: object, context: LambdaContext) -> dict[str, int | float | str]:
     site_bucket = os.environ["SITE_BUCKET"]
     cache_bucket = os.environ["CACHE_BUCKET"]
     cache_key = os.environ.get("CACHE_KEY", "planet/cache.sqlite")
@@ -70,7 +73,8 @@ def handler(_event: object, context: LambdaContext) -> dict[str, int | float]:
     remaining_s = context.get_remaining_time_in_millis() / 1000
     deadline = time.monotonic() + max(30.0, remaining_s - reserve_s)
 
-    cfg = config_mod.load(_path("CONFIG_PATH", "config.ini"))
+    resolved = resolve(os.environ.get("PLANET_CONFIG_URL"), _path("CONFIG_PATH", "config.ini"))
+    cfg = resolved.config
     s3: S3Client = boto3.client("s3")  # pyright: ignore[reportUnknownMemberType]
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -100,6 +104,7 @@ def handler(_event: object, context: LambdaContext) -> dict[str, int | float]:
 
         result = {
             **dataclasses.asdict(stats),
+            "config_source": resolved.source.value,
             **published,
             "cache_bytes": cache_path.stat().st_size,
             # ru_maxrss is KiB on Linux

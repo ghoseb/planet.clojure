@@ -21,8 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 Resources = Mapping[str, Mapping[str, Any]]
 
 
-@pytest.fixture(scope="module")
-def template() -> Template:
+def synth(config_url: str | None = None) -> Template:
     app = App()
     stack = PlanetStack(
         app,
@@ -31,10 +30,16 @@ def template() -> Template:
             image_dir=ROOT,
             alarm_email="alarms@example.com",
             schedule=scheduler.ScheduleExpression.cron(minute="17"),
+            config_url=config_url,
         ),
         env=Environment(account="123456789012", region="us-east-1"),
     )
     return Template.from_stack(stack)
+
+
+@pytest.fixture(scope="module")
+def template() -> Template:
+    return synth()
 
 
 def resources(template: Template, type_: str) -> Resources:
@@ -63,7 +68,17 @@ def test_job_function(template: Template) -> None:
     # No VPC: the job needs plain internet egress to fetch feeds.
     (function,) = resources(template, "AWS::Lambda::Function").values()
     assert "VpcConfig" not in function["Properties"]
+    # Without a config URL the job uses the config.ini in its image.
+    assert "PLANET_CONFIG_URL" not in function["Properties"]["Environment"]["Variables"]
     template.has_resource_properties("AWS::Lambda::EventInvokeConfig", {"MaximumRetryAttempts": 0})
+
+
+def test_config_url_is_passed_to_the_job() -> None:
+    url = "https://raw.githubusercontent.com/o/r/master/config.ini"
+    synth(config_url=url).has_resource_properties(
+        "AWS::Lambda::Function",
+        {"Environment": {"Variables": {"PLANET_CONFIG_URL": url}}},
+    )
 
 
 def test_hourly_schedule_without_retries(template: Template) -> None:

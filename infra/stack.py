@@ -45,6 +45,9 @@ class PlanetSettings:
     alarm_email: str
     # When the job runs. Minute 17, not 0: feed hosts get hammered on the hour.
     schedule: scheduler.ScheduleExpression
+    # Where the job downloads config.ini from at the start of each run
+    # (PLANET_CONFIG_URL). None: it uses the copy built into the image.
+    config_url: str | None = None
 
 
 class PlanetStack(Stack):
@@ -118,6 +121,7 @@ class PlanetStack(Stack):
                 "SITE_BUCKET": site_bucket.bucket_name,
                 "CACHE_BUCKET": cache_bucket.bucket_name,
                 "CACHE_KEY": f"{CACHE_PREFIX}cache.sqlite",
+                **({"PLANET_CONFIG_URL": settings.config_url} if settings.config_url else {}),
             },
             log_group=logs.LogGroup(
                 self,

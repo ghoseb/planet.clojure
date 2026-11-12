@@ -42,5 +42,7 @@ services:
       <<: *aws
       SITE_BUCKET: planet-site
       CACHE_BUCKET: planet-cache
+      # e.g. PLANET_CONFIG_URL=https://... docker compose up; unset: image copy
+      PLANET_CONFIG_URL: ${PLANET_CONFIG_URL:-}
       AWS_LAMBDA_FUNCTION_TIMEOUT: "900"
       AWS_LAMBDA_FUNCTION_MEMORY_SIZE: "1769"
