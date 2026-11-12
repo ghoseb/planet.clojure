@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+	<title>{{ name }}</title>
+	<link rel="self" href="{{ feed }}"/>
+	<link href="{{ link }}"/>
+	<id>{{ feed }}</id>
+	<updated>{{ now | iso }}</updated>
+	<generator uri="{{ generator_uri }}">{{ generator }}</generator>
+{% for item in items %}{% set ch = item.channel %}
+	<entry{% if ch.meta.language %} xml:lang="{{ ch.meta.language }}"{% endif %}>
+		<title type="html"{% if item.title_language %} xml:lang="{{ item.title_language }}"{% endif %}>{{ item.title }}</title>
+		<link href="{{ item.link or '' }}"/>
+		<id>{{ item.entry_id }}</id>
+		<updated>{{ item.date | iso }}</updated>
+		<content type="html"{% if item.content_language %} xml:lang="{{ item.content_language }}"{% endif %}>{{ item.content }}</content>
+		<author>
+{% if item.author_name %}
+			<name>{{ item.author_name }}</name>
+{% if item.author_email %}
+			<email>{{ item.author_email }}</email>
+{% endif %}
+{% elif ch.meta.author_name %}
+			<name>{{ ch.meta.author_name }}</name>
+{% if ch.meta.author_email %}
+			<email>{{ ch.meta.author_email }}</email>
+{% endif %}
+{% else %}
+			<name>{{ ch.name }}</name>
+{% endif %}
+			<uri>{{ ch.meta.link or '' }}</uri>
+		</author>
+		<source>
+			<title type="html">{{ ch.meta.title or ch.name }}</title>
+{% if ch.meta.subtitle %}
+			<subtitle type="html">{{ ch.meta.subtitle }}</subtitle>
+{% endif %}
+			<link rel="self" href="{{ ch.url }}"/>
+			<id>{{ ch.meta.feed_id or ch.url }}</id>
+{% if ch.meta.updated %}
+			<updated>{{ ch.meta.updated | iso }}</updated>
+{% endif %}
+{% if ch.meta.rights %}
+			<rights type="html">{{ ch.meta.rights }}</rights>
+{% endif %}
+		</source>
+	</entry>
+{% endfor %}
+</feed>

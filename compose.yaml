@@ -1,0 +1,46 @@
+# Local stack: floci (S3) + the Lambda image behind the Runtime Interface Emulator.
+#
+#   docker compose up --build -d
+#   scripts/invoke.sh            # one run, prints RunStats
+#   scripts/pull-site.sh         # copy the published site to local/site
+#
+# Credentials are dummies; floci accepts anything.
+
+x-aws: &aws
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  AWS_REGION: us-east-1
+  AWS_ENDPOINT_URL: http://floci:4566
+
+services:
+  floci:
+    image: floci/floci:latest
+    ports: ["4566:4566"]
+
+  buckets:
+    image: amazon/aws-cli:latest
+    depends_on: [floci]
+    environment: *aws
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        until aws s3 ls >/dev/null 2>&1; do sleep 1; done
+        for b in planet-site planet-cache; do
+          aws s3api head-bucket --bucket $$b 2>/dev/null || aws s3 mb s3://$$b
+        done
+        aws s3api put-bucket-versioning --bucket planet-cache \
+          --versioning-configuration Status=Enabled
+        echo buckets ready
+
+  planet:
+    build: .
+    platform: linux/arm64
+    depends_on:
+      buckets: {condition: service_completed_successfully}
+    ports: ["9000:8080"]
+    environment:
+      <<: *aws
+      SITE_BUCKET: planet-site
+      CACHE_BUCKET: planet-cache
+      AWS_LAMBDA_FUNCTION_TIMEOUT: "900"
+      AWS_LAMBDA_FUNCTION_MEMORY_SIZE: "1769"

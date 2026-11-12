@@ -1,0 +1,10 @@
+.git
+.venv
+.pi
+local
+browser-data
+**/__pycache__
+**/.pytest_cache
+static/sass
+static/*.rb
+static/.sass-cache

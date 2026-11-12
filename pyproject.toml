@@ -1,0 +1,72 @@
+[project]
+name = "planet"
+version = "2.0.0"
+description = "Planet Clojure feed aggregator (v2)"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.10",
+    "boto3>=1.44.1",
+    "feedparser>=6.0",
+    "jinja2>=3.1.6",
+    "nh3>=0.3.7",
+]
+
+[project.scripts]
+planet = "planet.main:cli"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.40.2",
+    "boto3-stubs[s3]>=1.44.1",
+    "moto>=5.2.5",
+    "pytest>=8",
+    "ruff>=0.17.4",
+    "vulture>=2.16",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/planet"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.basedpyright]
+include = ["src", "tests"]  # scripts/measure.py: one-off, unchecked
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["vulture_whitelist.py"]  # bare attribute references by design
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F",   # pycodestyle, pyflakes
+    "I",             # import order
+    "B",             # bugbear
+    "UP",            # pyupgrade
+    "SIM",           # simplify
+    "C4",            # comprehensions
+    "PIE", "RET",    # misc / returns
+    "PTH",           # pathlib
+    "ASYNC",         # async pitfalls
+    "S",             # bandit (security)
+    "BLE",           # blind except
+    "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",  # assert is how pytest tests
+    "S314",  # ElementTree only parses our own rendered output
+]
+
+[tool.vulture]
+paths = ["src", "tests", "vulture_whitelist.py"]
+min_confidence = 60

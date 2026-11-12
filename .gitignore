@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# local run artifacts (cache, rendered output, measurement results, floci data)
+local/
+
+.DS_Store
+.pi/
+browser-data/
