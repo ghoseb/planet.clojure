@@ -197,6 +197,13 @@ a:hover {
   gap: 0.75rem;
 }
 
+/* Phones: the feed stays linked from the sidebar. */
+@media (width < 40rem) {
+  .site-nav {
+    display: none;
+  }
+}
+
 .site-nav a,
 .button {
   display: inline-block;
@@ -453,6 +460,12 @@ main {
 
 .subscriptions a:hover {
   text-decoration: underline;
+}
+
+/* The last fetch of this feed failed. */
+.subscriptions a.unavailable,
+.subscriptions a.unavailable:hover {
+  text-decoration: line-through;
 }
 
 /* Footer */

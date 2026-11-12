@@ -73,7 +73,7 @@
           <h2>Subscriptions</h2>
           <ul class="subscriptions">
             {%- for channel in channels %}
-            <li><a {% if channel.meta.link %}href="{{ channel.meta.link }}" {% endif %}{% if channel.message %}class="message" title="{{ channel.message }}"{% else %}title="{{ (channel.meta.title or '') | plain }}"{% endif %}>{{ channel.name }}</a></li>
+            <li><a {% if channel.meta.link %}href="{{ channel.meta.link }}" {% endif %}{% if channel.message %}class="unavailable" title="Unable to fetch feed."{% else %}title="{{ (channel.meta.title or '') | plain }}"{% endif %}>{{ channel.name }}</a></li>
             {%- endfor %}
           </ul>
         </section>

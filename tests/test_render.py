@@ -77,7 +77,8 @@ def test_sidebar_marks_failed_feeds() -> None:
         url="https://dead.example/feed", name="Dead", meta=FeedMeta(), message="HTTP 404"
     )
     html = pages(channels=[failed])["index.html"]
-    assert 'class="message" title="HTTP 404">Dead</a>' in html
+    assert 'class="unavailable" title="Unable to fetch feed.">Dead</a>' in html
+    assert "HTTP 404" not in html
 
 
 def test_atom_is_valid_and_content_escaped_once() -> None:

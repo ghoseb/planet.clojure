@@ -46,7 +46,7 @@ def test_end_to_end_twice(server: FeedServer, tmp_path: Path) -> None:
     assert "Second Clojure post" in html and "First Clojure post" in html
     assert "Python post" not in html  # filtered out
     assert "<script" not in html
-    assert 'class="message" title="HTTP 404">Dead Blog</a>' in html
+    assert 'class="unavailable" title="Unable to fetch feed.">Dead Blog</a>' in html
     assert (out / "atom.xml").exists()
     assert (out / "static" / "css" / "screen.css").exists()
     # style.css is published only under its content hash, which the page links
@@ -63,7 +63,10 @@ def test_end_to_end_twice(server: FeedServer, tmp_path: Path) -> None:
     assert server.hits["/rss.xml"] == rss_hits + 1
     assert server.hits["/missing"] == missing_hits
     assert second.items_rendered == 3
-    assert 'class="message" title="HTTP 404">Dead Blog</a>' in (out / "index.html").read_text()
+    assert (
+        'class="unavailable" title="Unable to fetch feed.">Dead Blog</a>'
+        in (out / "index.html").read_text()
+    )
     store.close()
 
 
