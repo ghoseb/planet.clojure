@@ -1,6 +1,8 @@
 [project]
 name = "planet"
 version = "2.0.0"
+license = "MIT"
+license-files = ["LICENSE"]
 description = "Planet Clojure feed aggregator (v2)"
 requires-python = ">=3.12"
 dependencies = [
