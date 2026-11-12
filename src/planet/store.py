@@ -211,6 +211,12 @@ class Store:
                 ),
             )
 
+    def delete_entries(self, url: str, entry_ids: Iterable[str]) -> None:
+        self.conn.executemany(
+            "DELETE FROM entries WHERE feed_url = ? AND entry_id = ?",
+            [(url, entry_id) for entry_id in entry_ids],
+        )
+
     def prune(self, keep_per_feed: int) -> int:
         """Keep only the `keep_per_feed` most recent entries of each feed."""
         cur = self.conn.execute(

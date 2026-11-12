@@ -12,8 +12,10 @@ import hashlib
 import time
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, cast
+from urllib.parse import urljoin
 
 import feedparser  # pyright: ignore[reportMissingTypeStubs]
+from selectolax.lexbor import LexborHTMLParser
 
 from planet.model import Entry, FeedMeta, ParsedFeed
 
@@ -78,6 +80,35 @@ def _entry_link(entry: Raw) -> str | None:
     return _str(entry, "link")
 
 
+def _language_hints(
+    entry: Raw, content: str, base: str | None
+) -> tuple[str | None, tuple[tuple[str, str], ...]]:
+    """(language, translations) a post declares about itself.
+
+    Some feeds embed the whole HTML page of a post: its `<html lang>` gives
+    the language and its `<link rel=alternate hreflang>` tags the versions
+    in other languages. Atom entries may also carry hreflang links.
+    """
+    translations = [
+        (href, lang)
+        for link in _maps(entry, "links")
+        if _str(link, "rel") == "alternate"
+        and (href := _str(link, "href"))
+        and (lang := _str(link, "hreflang"))
+    ]
+    language = None
+    if "hreflang" in content or "<html" in content:  # skip parsing most entries
+        tree = LexborHTMLParser(content)
+        if tree.root is not None:
+            language = tree.root.attributes.get("lang") or tree.root.attributes.get("xml:lang")
+        for node in tree.css("link[hreflang][href]"):
+            rel = (node.attributes.get("rel") or "").lower().split()
+            href, lang = node.attributes.get("href"), node.attributes.get("hreflang")
+            if "alternate" in rel and href and lang:
+                translations.append((urljoin(base or "", href), lang))
+    return language or None, tuple(dict.fromkeys(translations))
+
+
 def _entry_id(entry: Raw, link: str | None, title: str, content: str) -> str:
     if entry_id := _str(entry, "id"):
         return entry_id
@@ -88,7 +119,7 @@ def _entry_id(entry: Raw, link: str | None, title: str, content: str) -> str:
     return f"urn:sha1:{digest}"
 
 
-def _to_entry(entry: Raw) -> Entry:
+def _to_entry(entry: Raw, base: str) -> Entry:
     title, title_language = _detail(entry, "title")
     summary, _ = _detail(entry, "summary")
     contents = _maps(entry, "content")
@@ -99,6 +130,7 @@ def _to_entry(entry: Raw) -> Entry:
         content = summary or ""
         content_language = _str(_map(entry, "summary_detail"), "language")
     link = _entry_link(entry)
+    page_language, translations = _language_hints(entry, content, link or base)
     author = _map(entry, "author_detail")
     return Entry(
         entry_id=_entry_id(entry, link, title or "", content),
@@ -111,7 +143,8 @@ def _to_entry(entry: Raw) -> Entry:
         tags=tuple(term for t in _maps(entry, "tags") if (term := _str(t, "term"))),
         date=_epoch(entry, "updated_parsed") or _epoch(entry, "published_parsed"),
         title_language=title_language,
-        content_language=content_language,
+        content_language=content_language or page_language,
+        translations=translations,
     )
 
 
@@ -129,7 +162,11 @@ def parse_feed(body: bytes, url: str, content_type: str | None = None) -> Parsed
     data = cast(
         "Raw",
         feedparser.parse(  # pyright: ignore[reportUnknownMemberType]
-            body, response_headers=headers
+            # nh3 (planet.sanitize) is the sanitizer; feedparser's own would
+            # also strip the <html lang> and hreflang links read above.
+            body,
+            response_headers=headers,
+            sanitize_html=False,
         ),
     )
     feed = _map(data, "feed")
@@ -155,7 +192,7 @@ def parse_feed(body: bytes, url: str, content_type: str | None = None) -> Parsed
     # Venus: when a feed repeats an id, keep the newest version.
     by_id: dict[str, Entry] = {}
     for raw in entries:
-        entry = _to_entry(raw)
+        entry = _to_entry(raw, url)
         seen = by_id.get(entry.entry_id)
         if seen is None or (entry.date or 0) >= (seen.date or 0):
             by_id[entry.entry_id] = entry

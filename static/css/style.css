@@ -1,0 +1,490 @@
+/* Planet Clojure: brutalist, built for reading, light and dark. No JS.
+ *
+ * Published as style.<hash>.css together with the generated syntax
+ * highlighting rules (planet.highlight), so edits reach visitors at once.
+ */
+
+@font-face {
+  font-family: "Plex Sans";
+  src: url("../fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Sans";
+  src: url("../fonts/ibm-plex-sans-latin-400-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Sans";
+  src: url("../fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2");
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Sans";
+  src: url("../fonts/ibm-plex-sans-latin-600-italic.woff2") format("woff2");
+  font-weight: 600 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Mono";
+  src: url("../fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Mono";
+  src: url("../fonts/ibm-plex-mono-latin-400-italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex Mono";
+  src: url("../fonts/ibm-plex-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light dark;
+  --bg: #fafaf7;
+  --fg: #0a0a0a;
+  --muted: #4d4d4d;
+  --rule: #0a0a0a;
+  --accent: #ffd500;
+  --accent-fg: #0a0a0a;
+  --code-bg: #f0f0eb; /* keep in sync with planet.highlight.CODE_BACKGROUND */
+  --sans: "Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --measure: 70ch;
+  --gutter: clamp(1rem, 4vw, 3rem);
+  --thick: 6px;
+  --thin: 3px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111111;
+    --fg: #ececec;
+    --muted: #b0b0b0;
+    --rule: #ececec;
+    --accent-fg: #111111;
+    --code-bg: #1c1c1c;
+  }
+}
+
+/* Base */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 112.5%; /* 18px */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 1rem/1.6 var(--sans);
+}
+
+a {
+  color: inherit;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+:focus-visible {
+  outline: var(--thin) solid var(--fg);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.skip {
+  position: absolute;
+  left: -100vw;
+}
+
+.skip:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 1;
+  padding: 0.5rem 1rem;
+  border: var(--thin) solid var(--fg);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font: 700 0.9rem var(--mono);
+}
+
+/* Header */
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  padding: 2rem var(--gutter) 1.5rem;
+  border-bottom: var(--thick) solid var(--rule);
+}
+
+.site-title {
+  margin: 0;
+  font: 700 clamp(2.2rem, 7vw, 4.5rem) / 0.95 var(--mono);
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+}
+
+.site-title a {
+  text-decoration: none;
+}
+
+.tagline {
+  margin: 0.75rem 0 0;
+  font: 400 0.9rem/1.4 var(--mono);
+  color: var(--muted);
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.site-nav a,
+.button {
+  display: inline-block;
+  padding: 0.35rem 0.8rem;
+  border: var(--thin) solid var(--rule);
+  font: 700 0.8rem/1.4 var(--mono);
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+/* Layout: posts, then the sidebar beside them on wide screens */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 72rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 21rem;
+  }
+  .sidebar {
+    border-left: var(--thick) solid var(--rule);
+  }
+}
+
+main {
+  padding: 0 var(--gutter);
+}
+
+/* Entries */
+
+.entry {
+  max-width: var(--measure);
+  padding: 2.5rem 0;
+  border-bottom: var(--thin) solid var(--rule);
+}
+
+.entry:last-child {
+  border-bottom: 0;
+}
+
+.entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.6rem;
+  font: 400 0.75rem/1.5 var(--mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.entry-meta .blog {
+  font-weight: 700;
+}
+
+.entry-meta time {
+  color: var(--muted);
+}
+
+.entry-title {
+  margin: 0 0 1.25rem;
+  font: 700 1.55rem/1.2 var(--mono);
+  letter-spacing: -0.02em;
+}
+
+.entry-title a {
+  text-decoration: none;
+}
+
+/* Post content (third-party HTML, sanitized) */
+
+.content {
+  overflow-wrap: break-word;
+}
+
+.content > :first-child {
+  margin-top: 0;
+}
+
+.content img,
+.content video {
+  max-width: 100%;
+  height: auto;
+}
+
+.content h1,
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  margin: 2rem 0 0.75rem;
+  font-family: var(--mono);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.content h1,
+.content h2 {
+  font-size: 1.25rem;
+}
+
+.content h3 {
+  font-size: 1.1rem;
+}
+
+.content h4,
+.content h5,
+.content h6 {
+  font-size: 1rem;
+}
+
+.content blockquote {
+  margin: 1.5rem 0;
+  padding: 0 0 0 1.25rem;
+  border-left: var(--thick) solid var(--rule);
+}
+
+.content hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: var(--thin) solid var(--rule);
+}
+
+.content code {
+  padding: 0.05em 0.25em;
+  background: var(--code-bg);
+  font-family: var(--mono);
+  font-size: 0.88em;
+}
+
+.content pre {
+  margin: 1.5rem 0;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  border: var(--thin) solid var(--rule);
+  background: var(--code-bg);
+  font: 400 0.8rem/1.55 var(--mono);
+  tab-size: 2;
+}
+
+.content pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.content th,
+.content td {
+  padding: 0.3rem 0.6rem;
+  border: 2px solid var(--rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+/* "Read more": native <details>, no JS */
+
+.more > summary {
+  display: inline-block;
+  margin: 0.5rem 0 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.more > summary .when-open,
+.more[open] > summary .when-closed {
+  display: none;
+}
+
+.more[open] > summary .when-open {
+  display: inline;
+}
+
+.more[open] > summary {
+  margin-bottom: 1.5rem;
+}
+
+/* Sidebar */
+
+.sidebar {
+  padding: 2rem var(--gutter);
+  border-top: var(--thick) solid var(--rule);
+}
+
+@media (min-width: 72rem) {
+  .sidebar {
+    padding: 2rem 1.5rem;
+    border-top: 0;
+  }
+}
+
+.sidebar section + section {
+  margin-top: 2.5rem;
+}
+
+.sidebar h2 {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: var(--thin) solid var(--rule);
+  font: 700 0.85rem var(--mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sidebar p {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.sidebar ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.sidebar li {
+  padding: 0.1rem 0;
+}
+
+.subscriptions {
+  columns: 15rem;
+  column-gap: 2rem;
+}
+
+@media (min-width: 72rem) {
+  .subscriptions {
+    columns: auto;
+  }
+}
+
+.subscriptions li {
+  break-inside: avoid;
+}
+
+.subscriptions a {
+  text-decoration: none;
+}
+
+.subscriptions a:hover {
+  text-decoration: underline;
+}
+
+.search {
+  display: flex;
+}
+
+.search input[type="search"] {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border: var(--thin) solid var(--rule);
+  border-right: 0;
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 0.85rem var(--mono);
+}
+
+.search button {
+  padding: 0.4rem 0.8rem;
+  border: var(--thin) solid var(--rule);
+  border-radius: 0;
+  background: var(--fg);
+  color: var(--bg);
+  font: 700 0.8rem var(--mono);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.search button:hover {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Footer */
+
+.site-footer {
+  padding: 1.5rem var(--gutter) 2.5rem;
+  border-top: var(--thick) solid var(--rule);
+  font: 400 0.75rem/1.7 var(--mono);
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+/* Print: just the posts */
+
+@media print {
+  .site-nav,
+  .sidebar {
+    display: none;
+  }
+  a {
+    text-decoration: none;
+  }
+}

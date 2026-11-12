@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from planet import config as config_mod
+from planet.assets import stylesheet
 from planet.config import Config, Feed
 from planet.fetch import (
     Deferred,
@@ -33,12 +34,14 @@ from planet.render import render
 from planet.sanitize import sanitize_entry
 from planet.schedule import DEFAULT_PER_HOST_BUDGET, plan
 from planet.store import Store
+from planet.translations import one_per_post
 
 log = logging.getLogger("planet")
 
 KEEP_PER_FEED = 10
 # Static source files that aren't served (Compass/Sass sources).
-STATIC_IGNORE = shutil.ignore_patterns("sass", "*.rb", ".sass-cache")
+# style.css is published hashed (planet.assets), not as is.
+STATIC_IGNORE = shutil.ignore_patterns("sass", "*.rb", ".sass-cache", "style.css")
 
 
 @dataclass(frozen=True)
@@ -59,19 +62,24 @@ class RunStats:
 
 
 def prepare(feed: Feed, download: Download) -> ParsedFeed:
-    """Parse, sanitize, then apply the feed's filter (Venus filtered the
-    scrubbed entry too). Runs in a worker thread."""
+    """Parse, keep one language version of each post, sanitize, then apply
+    the feed's filter (Venus filtered the scrubbed entry too). Runs in a
+    worker thread."""
     parsed = parse_feed(download.content, feed.url, download.content_type)
-    entries = tuple(e for e in map(sanitize_entry, parsed.entries) if keep(feed, e))
-    return ParsedFeed(meta=parsed.meta, entries=entries)
+    posts = one_per_post(parsed.entries)
+    entries = tuple(e for e in map(sanitize_entry, posts.kept) if keep(feed, e))
+    return ParsedFeed(meta=parsed.meta, entries=entries, dropped_translations=posts.dropped)
 
 
-def write_site(out_dir: Path, pages: dict[str, str], static_dir: Path | None) -> None:
+def write_site(out_dir: Path, files: dict[str, str], static_dir: Path | None) -> None:
+    """`files`: {path relative to the site root: content}."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    for name, content in pages.items():
-        (out_dir / name).write_text(content, encoding="utf-8")
     if static_dir:
         shutil.copytree(static_dir, out_dir / "static", dirs_exist_ok=True, ignore=STATIC_IGNORE)
+    for name, content in files.items():
+        path = out_dir / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
 
 
 def run(
@@ -105,6 +113,7 @@ def run(
             case Fetched(url=url, value=parsed, etag=etag, last_modified=lm):
                 store.record_success(url, parsed.meta, etag, lm, now)
                 store.upsert_entries(url, parsed.entries, now)
+                store.delete_entries(url, parsed.dropped_translations)
                 stored += len(parsed.entries)
                 ok += 1
             case NotModified(url=url, etag=etag, last_modified=lm):
@@ -127,7 +136,9 @@ def run(
 
     s = cfg.settings
     items = store.select_items(limit=s.items_per_page, per_feed=s.new_feed_items)
-    write_site(out_dir, render(s, items, store.channels(), now), static_dir)
+    css = stylesheet(static_dir)
+    pages = render(s, items, store.channels(), now, stylesheet=css.href)
+    write_site(out_dir, {**pages, css.path: css.content}, static_dir)
 
     return RunStats(
         feeds=len(cfg.feeds),

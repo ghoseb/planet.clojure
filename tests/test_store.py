@@ -142,3 +142,13 @@ def test_open_adds_backoff_columns_to_an_existing_cache(tmp_path: Path) -> None:
     assert store.record_error(A, "HTTP 404", now=0.0) == 3600.0
     store.close()
     Store.open(path).close()  # opening again is a no-op
+
+
+def test_delete_entries_removes_only_that_feeds_entries(store: Store) -> None:
+    store.upsert_entries(A, [entry(1), entry(2)], now=0.0)
+    store.upsert_entries(B, [entry(1)], now=0.0)
+    store.delete_entries(A, ["id-1"])
+    assert sorted((i.channel.url, i.entry_id) for i in store.select_items(limit=10)) == [
+        (A, "id-2"),
+        (B, "id-1"),
+    ]

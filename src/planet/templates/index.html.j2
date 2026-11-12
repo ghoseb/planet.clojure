@@ -1,142 +1,116 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ name }}</title>
-    <meta charset="utf-8" />
-    <meta name="generator" content="{{ generator }}" />
-    <link href="#" rel="apple-touch-icon" />
-    <link rel="stylesheet" href="static/css/screen.css" media="screen, projection" />
-
-<!--[if IE]>
-<link rel="stylesheet" type="text/css" href="static/css/ie.css" media="screen, projection" />
-<script type="text/javascript" src="static/js/html5.js"></script>
-<![endif]-->
-
-
-
-    <link rel="apple-touch-icon" sizes="180x180" href="/static/i/apple-touch-icon.png">
+    <meta name="description" content="{{ name }} collects posts from blogs about Clojure.">
+    <meta name="generator" content="{{ generator }}">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#fafaf7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+    <link rel="preload" href="/static/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="{{ stylesheet }}">
+    <link rel="alternate" type="application/atom+xml" href="{{ feed }}" title="{{ name }}">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/i/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/i/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/i/apple-touch-icon.png">
     <link rel="manifest" href="/static/i/site.webmanifest">
-    <link rel="shortcut icon" href="/static/i/favicon.ico">
-    <meta name="msapplication-TileColor" content="#da532c">
-    <meta name="msapplication-config" content="/static/i/browserconfig.xml">
-    <meta name="theme-color" content="#ffffff">
-    <link rel="alternate" href="{{ feed }}" type="application/rss+xml" title="Planet Clojure RSS Feed" />
-<!--    <link rel="alternate" href="http://feeds.feedburner.com/clojure" type="application/rss+xml" title="Planet Clojure RSS Feed" />-->
   </head>
   <body>
-    <div id="planet">
-      <div id="main">
-        <div id="main-content">
+    <a class="skip" href="#content">Skip to posts</a>
 
-          <header id="header">
-            <h1><a href="" id="title"><span>{{ name }}</span></a></h1>
-          </header>
-
-          {% for item in items %}
-          <section class="entry">
-            <aside class="aside">
-              <!-- <img src="static/i/favicon.gif" alt="Name of the Site" /> -->
-              <h2><a href="{{ item.channel.meta.link or '' }}" title="{{ (item.channel.meta.title or '') | plain }}">{{ item.channel.name }}</a></h2>
-              <p>
-                {{ item.date | date(date_format) }}
-                <br />
-                <a href="{{ item.channel.meta.link or '' }}">Feed URL</a>
-              </p>
-            </aside>
-            <article class="article">
-              <h2><a href="{{ item.link or '' }}">{{ item.title }}</a></h2>
-              <p>
-                {{ item.content | safe }}
-              </p>
-              <p class="meta"><a href="{{ item.link or '' }}">Permalink</a></p>
-            </article>
-          </section>
-          {% endfor %}
-
-          <footer id="footer">
-            <p>
-              Copyright &copy; 2009, Planet Clojure. No rights reserved.
-              <br />
-              Planet Clojure is maintained by <a href="http://freegeek.in/">Baishamapayan Ghose</a>.
-              <br />
-              Clojure and the Clojure logo are Copyright &copy; 2008-2009, Rich Hickey.
-              <br />
-              Theme by <a href="http://brajeshwar.com/">Brajeshwar</a>.
-            </p>
-          </footer>
-
-        </div>
+    <header class="site-header">
+      <div>
+        <p class="site-title"><a href="{{ link }}">{{ name }}</a></p>
+        <p class="tagline">Posts from blogs about Clojure, collected every hour.</p>
       </div>
+      <nav class="site-nav" aria-label="Site">
+        <a href="{{ feed }}">Atom feed</a>
+        <a href="#subscriptions">Subscriptions</a>
+      </nav>
+    </header>
 
-      <div id="sidebar">
-        <div id="sidebar-content">
-          <section id="search">
-	    <form action="http://www.google.com/cse" id="cse-search-box">
-              <input type="hidden" name="cx" value="013940287744875509343:60ybe0lrjm4" />
-              <input type="hidden" name="ie" value="UTF-8" />
-              <input type="text" name="q" class="input-txt" />
-              <input type="submit" name="sa" value="Search" />
-            </form>
-          </section>
+    <div class="layout">
+      <main id="content">
+        {%- for entry in entries %}
+        {%- set item = entry.item %}
+        <article class="entry">
+          <p class="entry-meta">
+            {%- if item.channel.meta.link %}
+            <a class="blog" href="{{ item.channel.meta.link }}">{{ item.channel.name }}</a>
+            {%- else %}
+            <span class="blog">{{ item.channel.name }}</span>
+            {%- endif %}
+            <time datetime="{{ item.date | iso }}">{{ item.date | date(date_format) }}</time>
+          </p>
+          <h2 class="entry-title"{% if item.title_language %} lang="{{ item.title_language }}"{% endif %}>
+            {%- if item.link %}<a href="{{ item.link }}">{{ item.title }}</a>{% else %}{{ item.title }}{% endif -%}
+          </h2>
+          <div class="content"{% if item.content_language %} lang="{{ item.content_language }}"{% endif %}>
+            {{ entry.visible | safe }}
+            {%- if entry.more %}
+            <details class="more">
+              <summary class="button"><span class="when-closed">Read more</span><span class="when-open">Show less</span></summary>
+              {{ entry.more | safe }}
+            </details>
+            {%- endif %}
+          </div>
+        </article>
+        {%- else %}
+        <p>No posts yet.</p>
+        {%- endfor %}
+      </main>
 
-          <section id="about" class="sidebar-list">
-            <h3>About</h3>
-            <p>Planet Clojure is a meta blog that collects posts from the blogs of various <a href="http://clojure.org/">Clojure</a> hackers and contributors.</p>
-            <p>It is edited by <a href="http://freegeek.in/">Baishampayan Ghose</a> and <a href="http://alexott.net/en/index.html">Alex Ott</a>. Please <a href="http://github.com/ghoseb/planet.clojure">send them a patch</a> if you want your blog to be syndicated here.</p>
-          </section>
+      <aside class="sidebar" aria-label="About and subscriptions">
+        <section>
+          <h2>About</h2>
+          <p>{{ name }} is a meta blog that collects posts from the blogs of <a href="https://clojure.org/">Clojure</a> hackers and contributors.</p>
+          <p>It is edited by <a href="http://freegeek.in/">Baishampayan Ghose</a> and <a href="http://alexott.net/en/index.html">Alex Ott</a>. Please <a href="https://github.com/ghoseb/planet.clojure">send them a patch</a> if you want your blog to be syndicated here.</p>
+        </section>
 
-          <section class="sidebar-list">
-            <h3>Subscriptions</h3>
-            <ul>
-              {% for channel in channels %}
-                <li>
-                  <a {% if channel.meta.link %}href="{{ channel.meta.link }}" {% endif %}{% if channel.message %}class="message" title="{{ channel.message }}"{% else %}title="{{ (channel.meta.title or '') | plain }}"{% endif %}>{{ channel.name }}</a>
-                </li>
-              {% endfor %}
-            </ul>
-          </section>
+        <section>
+          <h2>Search</h2>
+          <form class="search" action="https://www.google.com/cse" role="search">
+            <input type="hidden" name="cx" value="013940287744875509343:60ybe0lrjm4">
+            <input type="hidden" name="ie" value="UTF-8">
+            <input type="search" name="q" aria-label="Search the blogs">
+            <button type="submit">Search</button>
+          </form>
+        </section>
 
-          <section class="sidebar-list">
-            <h3>Planetarium</h3>
-            <ul>
-              <li><a href="http://planet.lisp.org/">Planet Lisp</a></li>
-<!--              <li><a href="http://www.planetscala.com/">Planet Scala</a></li>-->
-              <li><a href="https://planet.scheme.org">Planet Scheme</a></li>
-<!--              <li><a href="http://planetjdk.org/">Planet JDK</a></li>-->
-              <li><a href="https://planet.haskell.org">Planet Haskell</a></li>
-<!--              <li><a href="http://www.planeterlang.org">Planet Erlang</a></li>-->
-              <li><a href="http://planet.python.org">Planet Python</a></li>
-<!--              <li><a href="http://planetruby.0x42.net">Planet Ruby</a></li>-->
-<!--              <li><a href="http://planet.perl.org">Planet Perl</a></li>-->
-            </ul>
-          </section>
+        <section id="subscriptions">
+          <h2>Subscriptions</h2>
+          <ul class="subscriptions">
+            {%- for channel in channels %}
+            <li><a {% if channel.meta.link %}href="{{ channel.meta.link }}" {% endif %}{% if channel.message %}class="message" title="{{ channel.message }}"{% else %}title="{{ (channel.meta.title or '') | plain }}"{% endif %}>{{ channel.name }}</a></li>
+            {%- endfor %}
+          </ul>
+        </section>
 
-          <section class="sidebar-list">
-            <h3>Syndicate</h3>
-            <ul>
-              <li><a href="{{ feed }}">RSS</a></li>
-<!--              <li><a href="http://feeds.feedburner.com/clojure">RSS</a></li>-->
-              <li><a href="opml.xml">OPML</a></li>
-              <li><a href="foafroll.xml">FOAF</a></li>
-            </ul>
-          </section>
+        <section>
+          <h2>Planetarium</h2>
+          <ul>
+            <li><a href="http://planet.lisp.org/">Planet Lisp</a></li>
+            <li><a href="https://planet.scheme.org">Planet Scheme</a></li>
+            <li><a href="https://planet.haskell.org">Planet Haskell</a></li>
+            <li><a href="http://planet.python.org">Planet Python</a></li>
+          </ul>
+        </section>
 
-        </div>
-      </div>
+        <section>
+          <h2>Syndicate</h2>
+          <ul>
+            <li><a href="{{ feed }}">Atom feed</a></li>
+          </ul>
+        </section>
+      </aside>
     </div>
-<!-- GOOG Analytics -->
-<script type="text/javascript">
-  var _gaq = _gaq || [];
-  _gaq.push(['_setAccount', 'UA-12235178-1']);
-  _gaq.push(['_trackPageview']);
 
-  (function() {
-    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = 'async';
-    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-    (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ga);
-  })();
-</script>
+    <footer class="site-footer">
+      <p>{{ name }} is maintained by <a href="http://freegeek.in/">Baishampayan Ghose</a> and <a href="http://alexott.net/en/index.html">Alex Ott</a>. <a href="https://github.com/ghoseb/planet.clojure">Source on GitHub</a>.</p>
+      <p>Posts are copyright their authors. Clojure and the Clojure logo are copyright Rich Hickey.</p>
+      <p>Updated <time datetime="{{ now | iso }}">{{ now | date(date_format) }}</time> UTC.</p>
+    </footer>
   </body>
 </html>

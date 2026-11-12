@@ -26,6 +26,8 @@ CONTENT_TYPES = {
     ".css": "text/css; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
     ".webmanifest": "application/manifest+json",
+    ".woff2": "font/woff2",
+    ".svg": "image/svg+xml",
 }
 
 

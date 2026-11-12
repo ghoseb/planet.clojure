@@ -37,12 +37,18 @@ class Entry:
     date: float | None = None
     title_language: str | None = None
     content_language: str | None = None
+    # (url, language) of the versions of this post in other languages, as
+    # declared by hreflang links. Read when parsing; never stored.
+    translations: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
 class ParsedFeed:
     meta: FeedMeta
     entries: tuple[Entry, ...]
+    # ids of entries dropped as translations of a kept entry; the store
+    # deletes them in case an earlier run kept them.
+    dropped_translations: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)

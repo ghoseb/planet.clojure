@@ -11,6 +11,8 @@ dependencies = [
     "feedparser>=6.0",
     "jinja2>=3.1.6",
     "nh3>=0.3.7",
+    "pygments>=2.21.0",
+    "selectolax>=1.0.2",
 ]
 
 [project.scripts]
@@ -23,6 +25,7 @@ dev = [
     "moto>=5.2.5",
     "pytest>=8",
     "ruff>=0.17.4",
+    "types-pygments>=2.21.0.20260819",
     "vulture>=2.16",
 ]
 infra = [

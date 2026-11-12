@@ -1,3 +1,5 @@
+import pytest
+
 from planet.model import Entry
 from planet.sanitize import clean_html, plain_text, sanitize_entry
 
@@ -23,6 +25,26 @@ def test_keeps_ordinary_formatting() -> None:
 
 def test_links_get_rel() -> None:
     assert 'rel="noopener noreferrer nofollow"' in clean_html('<a href="https://e.x">e</a>')
+
+
+def test_code_blocks_keep_only_a_normalised_language_label() -> None:
+    cleaned = clean_html(
+        '<pre class="brush: clojure; notranslate" style="x"><code class="hljs">'
+        '<span class="k" style="color:red">(defn</span></code></pre>'
+        '<p class="language-clojure">p</p><code class="lang-js">x</code>'
+    )
+    assert cleaned == (
+        '<pre class="language-clojure"><code><span>(defn</span></code></pre>'
+        '<p>p</p><code class="language-javascript">x</code>'
+    )
+
+
+@pytest.mark.parametrize("tag", ["iframe", "noscript", "noembed", "NOFRAMES"])
+def test_fallback_markup_inside_raw_text_elements_is_kept(tag: str) -> None:
+    fragment = f'<p>a</p><{tag} src="x"><a href="https://e.x/">link</a></{tag}><p>b</p>'
+    assert clean_html(fragment) == (
+        '<p>a</p><a href="https://e.x/" rel="noopener noreferrer nofollow">link</a><p>b</p>'
+    )
 
 
 def test_plain_text() -> None:

@@ -1,3 +1,4 @@
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Sequence
 from dataclasses import replace
@@ -15,6 +16,7 @@ date_format = %B %d, %Y %I:%M %p
 """).settings
 
 ATOM_NS = {"a": "http://www.w3.org/2005/Atom"}
+CSS = "/static/css/style.0123abcd.css"
 ITEM = Item(
     entry_id="urn:1",
     title="A <b> & c",
@@ -52,7 +54,7 @@ def pages(
 ) -> dict[str, str]:
     items = [item()] if items is None else items
     channels = [items[0].channel] if channels is None and items else (channels or [])
-    return render(SETTINGS, items, channels, now=1_762_100_000.0)
+    return render(SETTINGS, items, channels, now=1_762_100_000.0, stylesheet=CSS)
 
 
 def test_index_escapes_text_and_keeps_sanitized_content() -> None:
@@ -65,7 +67,8 @@ def test_index_escapes_text_and_keeps_sanitized_content() -> None:
 
 def test_index_links_to_the_configured_feed() -> None:
     html = pages()["index.html"]
-    assert html.count('href="https://planet.example/atom.xml"') == 2  # <head> and sidebar
+    # <head>, header nav and sidebar
+    assert html.count('href="https://planet.example/atom.xml"') == 3
     assert "planet.clojure.in" not in html
 
 
@@ -93,3 +96,47 @@ def test_empty_planet_renders() -> None:
     out = pages(items=[], channels=[])
     assert "<title>Test Planet</title>" in out["index.html"]
     ET.fromstring(out["atom.xml"].encode())
+
+
+def test_index_runs_no_script() -> None:
+    html = pages()["index.html"]
+    assert "<script" not in html.lower()
+    assert not re.search(r"\son[a-z]+=", html)
+
+
+def test_index_links_the_stylesheet_and_fonts() -> None:
+    html = pages()["index.html"]
+    assert f'<link rel="stylesheet" href="{CSS}">' in html
+    assert 'rel="preload" href="/static/fonts/ibm-plex-sans-latin-400-normal.woff2"' in html
+
+
+def test_index_highlights_code_but_atom_keeps_it_as_stored() -> None:
+    code = '<pre><code class="language-clojure">(defn f [x] x)</code></pre>'
+    out = pages([item(content=code)])
+    assert (
+        '<pre class="code"><code class="language-clojure"><span class="p">(</span>'
+        in (out["index.html"])
+    )
+    content = text(find(ET.fromstring(out["atom.xml"].encode()), "a:entry"), "a:content")
+    assert content == code
+
+
+def test_long_entries_collapse_on_the_index_only() -> None:
+    long = "".join(f"<p>{'word ' * 100}{i}</p>" for i in range(6))
+    out = pages([item(content=long)])
+    html = out["index.html"]
+    assert '<details class="more">' in html
+    assert html.index("word 1</p>") < html.index("<details") < html.index("word 2</p>")
+    assert "<details" not in out["atom.xml"]
+
+
+def test_short_entries_are_not_collapsed() -> None:
+    assert "<details" not in pages()["index.html"]
+
+
+def test_index_drops_a_repeated_title_but_atom_keeps_it() -> None:
+    content = "<h1>A b c</h1><p>Body</p>"
+    out = pages([item(content=content)])
+    assert "<h1>" not in out["index.html"]
+    content_el = find(find(ET.fromstring(out["atom.xml"].encode()), "a:entry"), "a:content")
+    assert content_el.text == content

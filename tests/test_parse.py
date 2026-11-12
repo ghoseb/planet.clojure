@@ -80,3 +80,30 @@ def test_charset_from_content_type_is_used() -> None:
 def test_garbage_raises() -> None:
     with pytest.raises(ParseError):
         parse_feed(b"\x00\x01 definitely not a feed", "u")
+
+
+TRANSLATED_ATOM = b"""<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>T</title><id>urn:t</id>
+<updated>2026-01-01T00:00:00Z</updated>
+<entry><id>urn:en</id><title>Fork</title><updated>2026-01-01T00:00:00Z</updated>
+  <link href="https://b.example/fork_en.html"/>
+  <content type="html">&lt;html lang="en"&gt;&lt;head&gt;
+    &lt;link rel="alternate" hreflang="en" href="fork_en.html"&gt;
+    &lt;link rel="alternate" hreflang="de" href="fork_de.html"&gt;
+  &lt;/head&gt;&lt;body&gt;&lt;p&gt;Hello&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</content></entry>
+<entry><id>urn:atom</id><title>Atom links</title><updated>2026-01-01T00:00:00Z</updated>
+  <link rel="alternate" href="https://b.example/p"/>
+  <link rel="alternate" hreflang="fr" href="https://b.example/fr/p"/>
+  <content type="html">&lt;p&gt;Hi&lt;/p&gt;</content></entry>
+</feed>"""
+
+
+def test_language_hints_from_embedded_page_and_atom_links() -> None:
+    page, atom = parse_feed(TRANSLATED_ATOM, "https://b.example/feed").entries
+    assert page.content_language == "en"
+    assert page.translations == (
+        ("https://b.example/fork_en.html", "en"),
+        ("https://b.example/fork_de.html", "de"),
+    )
+    assert atom.translations == (("https://b.example/fr/p", "fr"),)
+    assert atom.content_language is None
