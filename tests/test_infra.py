@@ -29,7 +29,7 @@ def synth(config_url: str | None = None, domain: CustomDomain | None = None) -> 
         PlanetSettings(
             image_dir=ROOT,
             alarm_email="alarms@example.com",
-            schedule=scheduler.ScheduleExpression.cron(minute="17"),
+            schedule=scheduler.ScheduleExpression.cron(minute="30"),
             config_url=config_url,
             domain=domain,
         ),
@@ -86,7 +86,7 @@ def test_hourly_schedule_without_retries(template: Template) -> None:
     template.has_resource_properties(
         "AWS::Scheduler::Schedule",
         {
-            "ScheduleExpression": "cron(17 * * * ? *)",
+            "ScheduleExpression": "cron(30 * * * ? *)",
             "State": "ENABLED",
             "Target": {"RetryPolicy": {"MaximumRetryAttempts": 0}},
         },

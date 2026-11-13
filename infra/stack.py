@@ -59,7 +59,7 @@ class PlanetSettings:
     # Directory holding the Dockerfile for the job's image (the repo root).
     image_dir: Path
     alarm_email: str
-    # When the job runs. Minute 17, not 0: feed hosts get hammered on the hour.
+    # When the job runs. Not minute 0: feed hosts get hammered on the hour.
     schedule: scheduler.ScheduleExpression
     # Where the job downloads config.ini from at the start of each run
     # (PLANET_CONFIG_URL). None: it uses the copy built into the image.

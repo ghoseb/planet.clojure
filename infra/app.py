@@ -22,12 +22,14 @@ REGION = "us-east-1"
 # Read by the job at the start of each run, so feed changes merged on GitHub
 # need no deploy. The copy in the image is the fallback.
 CONFIG_URL = "https://raw.githubusercontent.com/ghoseb/planet.clojure/main/config.ini"
-# DNS (Route53 A/AAAA aliases to the distribution) is managed by hand. The
-# certificate was requested by hand in ACM (us-east-1, DNS validation) and
-# covers both names.
+# Requested by hand in ACM (us-east-1, DNS validation); covers both names.
+CERTIFICATE_ARN = (
+    "arn:aws:acm:us-east-1:732295986630:certificate/cb5e1339-8e69-4939-9adf-e7e01c4a1f9b"
+)
+# DNS (Route53 A/AAAA aliases to the distribution) is managed by hand.
 DOMAIN = CustomDomain(
     names=("planet.clojure.in", "www.planet.clojure.in"),
-    certificate_arn="arn:aws:acm:us-east-1:732295986630:certificate/cb5e1339-8e69-4939-9adf-e7e01c4a1f9b",
+    certificate_arn=CERTIFICATE_ARN,
 )
 
 
@@ -39,7 +41,7 @@ def main() -> None:
         PlanetSettings(
             image_dir=Path(__file__).resolve().parent.parent,
             alarm_email="b.ghose@gmail.com",
-            schedule=scheduler.ScheduleExpression.cron(minute="17"),
+            schedule=scheduler.ScheduleExpression.cron(minute="30"),
             config_url=CONFIG_URL,
             domain=DOMAIN,
         ),
