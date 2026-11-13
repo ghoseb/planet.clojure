@@ -114,9 +114,10 @@ class PlanetStack(Stack):
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             encryption=s3.BucketEncryption.S3_MANAGED,
             enforce_ssl=True,
-            # Versions are the rollback for a bad cache write.
+            # Versions are the rollback for a bad cache write; a week of hourly
+            # versions is plenty, and each is a full copy of the cache.
             versioned=True,
-            lifecycle_rules=[s3.LifecycleRule(noncurrent_version_expiration=Duration.days(30))],
+            lifecycle_rules=[s3.LifecycleRule(noncurrent_version_expiration=Duration.days(7))],
             removal_policy=RemovalPolicy.RETAIN,
         )
         site_bucket = s3.Bucket(

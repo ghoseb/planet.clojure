@@ -113,6 +113,8 @@ def test_buckets_are_private_and_retained(template: Template) -> None:
         }
     versioned = [b for b in buckets.values() if b["Properties"].get("VersioningConfiguration")]
     assert len(versioned) == 1  # the cache bucket
+    (rule,) = versioned[0]["Properties"]["LifecycleConfiguration"]["Rules"]
+    assert rule["NoncurrentVersionExpiration"] == {"NoncurrentDays": 7}
 
 
 def test_job_may_only_touch_the_cache_prefix(template: Template) -> None:
