@@ -40,6 +40,8 @@ from constructs import Construct
 CACHE_PREFIX = "planet/"
 # A run slower than this raises an alarm, long before the 15 min timeout.
 SLOW_RUN = Duration.minutes(8)
+# How often Route53 publishes its DNSSEC metrics.
+DNSSEC_METRIC_PERIOD = Duration.hours(4)
 
 
 @dataclass(frozen=True)
@@ -87,6 +89,10 @@ class PlanetSettings:
     domain: CustomDomain | None = None
     # None: no redirecting host names.
     redirect: Redirect | None = None
+    # Route53 hosted zone signed with DNSSEC (signing is set up by hand). Its
+    # signing health is alarmed: once the parent publishes a DS record, a
+    # signing failure makes the zone unresolvable for validating resolvers.
+    dnssec_zone_id: str | None = None
 
 
 class PlanetStack(Stack):
@@ -182,7 +188,10 @@ class PlanetStack(Stack):
             target=scheduler_targets.LambdaInvoke(job, retry_attempts=0),
         )
 
-        _add_alarms(self, job, settings.alarm_email)
+        notify = _alarm_topic(self, settings.alarm_email)
+        _add_job_alarms(self, job, notify)
+        if settings.dnssec_zone_id:
+            _add_dnssec_alarms(self, settings.dnssec_zone_id, notify)
 
         if settings.redirect:
             redirect = _redirect_distribution(self, settings.redirect)
@@ -288,12 +297,23 @@ def _redirect_distribution(scope: Construct, redirect: Redirect) -> cloudfront.D
     )
 
 
-def _add_alarms(scope: Construct, job: lambda_.IFunction, alarm_email: str) -> None:
-    """Email on failed runs, slow runs, and runs that stopped happening."""
+def _alarm_topic(scope: Construct, alarm_email: str) -> cloudwatch_actions.SnsAction:
+    """The action every alarm takes: email the given address."""
     topic = sns.Topic(scope, "Alarms", display_name="Planet Clojure alarms")
     topic.add_subscription(sns_subscriptions.EmailSubscription(alarm_email))
-    notify = cloudwatch_actions.SnsAction(topic)
+    return cloudwatch_actions.SnsAction(topic)
 
+
+def _notify_on_change(alarms: list[cloudwatch.Alarm], notify: cloudwatch_actions.SnsAction) -> None:
+    for alarm in alarms:
+        alarm.add_alarm_action(notify)
+        alarm.add_ok_action(notify)
+
+
+def _add_job_alarms(
+    scope: Construct, job: lambda_.IFunction, notify: cloudwatch_actions.SnsAction
+) -> None:
+    """Email on failed runs, slow runs, and runs that stopped happening."""
     hour = Duration.hours(1)
     alarms = [
         cloudwatch.Alarm(
@@ -328,6 +348,52 @@ def _add_alarms(scope: Construct, job: lambda_.IFunction, alarm_email: str) -> N
             treat_missing_data=cloudwatch.TreatMissingData.BREACHING,
         ),
     ]
-    for alarm in alarms:
-        alarm.add_alarm_action(notify)
-        alarm.add_ok_action(notify)
+    _notify_on_change(alarms, notify)
+
+
+def _add_dnssec_alarms(
+    scope: Construct, zone_id: str, notify: cloudwatch_actions.SnsAction
+) -> None:
+    """Email when Route53 can't sign the zone, or a key-signing key needs action
+    (for example, its KMS key was disabled or its key policy changed).
+
+    Route53 publishes these metrics every 4 hours, so the alarms check every
+    4 hours too. Should a window ever miss its data point, the alarm keeps its
+    last state instead of flipping back to OK.
+    """
+
+    def zone_metric(name: str) -> cloudwatch.Metric:
+        return cloudwatch.Metric(
+            namespace="AWS/Route53",
+            metric_name=name,
+            dimensions_map={"HostedZoneId": zone_id},
+            period=DNSSEC_METRIC_PERIOD,
+            statistic="Maximum",
+        )
+
+    alarms = [
+        cloudwatch.Alarm(
+            scope,
+            "DnssecInternalFailure",
+            alarm_description=f"Route53 can't sign hosted zone {zone_id} with DNSSEC.",
+            metric=zone_metric("DNSSECInternalFailure"),
+            threshold=1,
+            evaluation_periods=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.IGNORE,
+        ),
+        cloudwatch.Alarm(
+            scope,
+            "DnssecKeyNeedsAction",
+            alarm_description=(
+                f"A DNSSEC key-signing key of hosted zone {zone_id} needs action "
+                "(check its KMS key)."
+            ),
+            metric=zone_metric("DNSSECKeySigningKeysNeedingAction"),
+            threshold=1,
+            evaluation_periods=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.IGNORE,
+        ),
+    ]
+    _notify_on_change(alarms, notify)

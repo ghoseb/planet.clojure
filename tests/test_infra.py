@@ -25,6 +25,7 @@ def synth(
     config_url: str | None = None,
     domain: CustomDomain | None = None,
     redirect: Redirect | None = None,
+    dnssec_zone_id: str | None = None,
 ) -> Template:
     app = App()
     stack = PlanetStack(
@@ -37,6 +38,7 @@ def synth(
             config_url=config_url,
             domain=domain,
             redirect=redirect,
+            dnssec_zone_id=dnssec_zone_id,
         ),
         env=Environment(account="123456789012", region="us-east-1"),
     )
@@ -252,13 +254,30 @@ def test_redirect_target_must_be_an_absolute_url() -> None:
         synth(redirect=Redirect(("example",), "arn:aws:acm:us-east-1:1:certificate/x", "/home"))
 
 
+def test_dnssec_alarms_watch_the_zone_and_hold_state_between_data_points() -> None:
+    alarms = resources(synth(dnssec_zone_id="ZONE123"), "AWS::CloudWatch::Alarm")
+    dnssec = {
+        a["Properties"]["MetricName"]: a["Properties"]
+        for a in alarms.values()
+        if a["Properties"]["Namespace"] == "AWS/Route53"
+    }
+    assert set(dnssec) == {"DNSSECInternalFailure", "DNSSECKeySigningKeysNeedingAction"}
+    for alarm in dnssec.values():
+        assert alarm["Dimensions"] == [{"Name": "HostedZoneId", "Value": "ZONE123"}]
+        assert alarm["Threshold"] == 1
+        assert alarm["Period"] == 4 * 60 * 60
+        assert alarm["ComparisonOperator"] == "GreaterThanOrEqualToThreshold"
+        assert alarm["TreatMissingData"] == "ignore"
+        assert alarm["AlarmActions"] and alarm["OKActions"]
+
+
 def test_alarms_email_on_failure_slowness_and_silence(template: Template) -> None:
     template.has_resource_properties(
         "AWS::SNS::Subscription", {"Protocol": "email", "Endpoint": "alarms@example.com"}
     )
     alarms = resources(template, "AWS::CloudWatch::Alarm")
     by_metric = {a["Properties"]["MetricName"]: a["Properties"] for a in alarms.values()}
-    assert set(by_metric) == {"Errors", "Duration", "Invocations"}
+    assert set(by_metric) == {"Errors", "Duration", "Invocations"}  # no DNSSEC alarms by default
     assert by_metric["Duration"]["Threshold"] == 8 * 60 * 1000
     assert by_metric["Invocations"]["TreatMissingData"] == "breaching"
     for alarm in by_metric.values():

@@ -43,6 +43,10 @@ REDIRECT = Redirect(
     target=f"https://{DOMAIN.names[0]}/",
 )
 
+# The clojure.in hosted zone. DNSSEC signing (KMS key, key-signing key, DS
+# record at the registrar) was set up by hand; the stack only alarms on it.
+DNSSEC_ZONE_ID = "Z05654461DOMC2VYKTSXH"
+
 
 def main() -> None:
     app = App()
@@ -56,6 +60,7 @@ def main() -> None:
             config_url=CONFIG_URL,
             domain=DOMAIN,
             redirect=REDIRECT,
+            dnssec_zone_id=DNSSEC_ZONE_ID,
         ),
         env=Environment(account=ACCOUNT, region=REGION),
     )
