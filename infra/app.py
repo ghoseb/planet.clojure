@@ -12,7 +12,7 @@ from pathlib import Path
 from aws_cdk import App, Environment
 from aws_cdk import aws_scheduler as scheduler
 
-from infra.stack import CustomDomain, PlanetSettings, PlanetStack
+from infra.stack import CustomDomain, PlanetSettings, PlanetStack, Redirect
 
 # Pinned so a deploy with credentials for any other account fails instead of
 # creating the stack there.
@@ -31,6 +31,17 @@ DOMAIN = CustomDomain(
     names=("planet.clojure.in", "www.planet.clojure.in"),
     certificate_arn=CERTIFICATE_ARN,
 )
+# Requested by hand in ACM (us-east-1, DNS validation); covers both names.
+REDIRECT_CERTIFICATE_ARN = (
+    "arn:aws:acm:us-east-1:732295986630:certificate/72001770-2175-4a56-9c4c-26aaf32a5144"
+)
+# The bare domain and its www send every request to the site's home page.
+# DNS (Route53 A/AAAA aliases to the redirect distribution) is managed by hand.
+REDIRECT = Redirect(
+    names=("clojure.in", "www.clojure.in"),
+    certificate_arn=REDIRECT_CERTIFICATE_ARN,
+    target=f"https://{DOMAIN.names[0]}/",
+)
 
 
 def main() -> None:
@@ -44,6 +55,7 @@ def main() -> None:
             schedule=scheduler.ScheduleExpression.cron(minute="30"),
             config_url=CONFIG_URL,
             domain=DOMAIN,
+            redirect=REDIRECT,
         ),
         env=Environment(account=ACCOUNT, region=REGION),
     )

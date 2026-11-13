@@ -129,24 +129,31 @@
       "Effect": "Allow",
       "Action": [
         "cloudfront:CreateDistribution",
+        "cloudfront:CreateFunction",
         "cloudfront:CreateOriginAccessControl",
         "cloudfront:CreateResponseHeadersPolicy",
         "cloudfront:DeleteDistribution",
+        "cloudfront:DeleteFunction",
         "cloudfront:DeleteOriginAccessControl",
         "cloudfront:DeleteResponseHeadersPolicy",
+        "cloudfront:DescribeFunction",
         "cloudfront:GetDistribution",
         "cloudfront:GetDistributionConfig",
+        "cloudfront:GetFunction",
         "cloudfront:GetOriginAccessControl",
         "cloudfront:GetResponseHeadersPolicy",
         "cloudfront:ListTagsForResource",
+        "cloudfront:PublishFunction",
         "cloudfront:TagResource",
         "cloudfront:UntagResource",
         "cloudfront:UpdateDistribution",
+        "cloudfront:UpdateFunction",
         "cloudfront:UpdateOriginAccessControl",
         "cloudfront:UpdateResponseHeadersPolicy"
       ],
       "Resource": [
         "arn:aws:cloudfront::732295986630:distribution/*",
+        "arn:aws:cloudfront::732295986630:function/*",
         "arn:aws:cloudfront::732295986630:origin-access-control/*",
         "arn:aws:cloudfront::732295986630:response-headers-policy/*"
       ]

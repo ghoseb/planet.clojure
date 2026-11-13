@@ -7,6 +7,7 @@
     EventBridge Scheduler --hourly--> Lambda (container image, no VPC)
         Lambda <-> cache bucket (SQLite cache, versioned)
         Lambda  -> site bucket (private) <- CloudFront (OAC, HTTPS) <- readers
+    other host names -> CloudFront + function -> 301 to the site (optional)
 
 Both buckets are retained if the stack is deleted: the cache holds history
 that can't be re-fetched, and the site bucket is what readers are served.
@@ -14,8 +15,10 @@ that can't be re-fetched, and the site bucket is what readers are served.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from aws_cdk import CfnOutput, Duration, Environment, IgnoreMode, RemovalPolicy, Stack
 from aws_cdk import aws_certificatemanager as acm
@@ -55,6 +58,22 @@ class CustomDomain:
 
 
 @dataclass(frozen=True)
+class Redirect:
+    """Host names that answer every request with a permanent redirect to one URL.
+
+    Served by a distribution of their own, so the site's is never touched.
+    DNS is managed by hand, as for CustomDomain.
+    """
+
+    names: tuple[str, ...]
+    # An ACM certificate in us-east-1 covering every name (DNS validation;
+    # keep the validation records).
+    certificate_arn: str
+    # Every path goes here: the redirect does not carry the path over.
+    target: str
+
+
+@dataclass(frozen=True)
 class PlanetSettings:
     # Directory holding the Dockerfile for the job's image (the repo root).
     image_dir: Path
@@ -66,6 +85,8 @@ class PlanetSettings:
     config_url: str | None = None
     # None: the site is served only on its *.cloudfront.net name.
     domain: CustomDomain | None = None
+    # None: no redirecting host names.
+    redirect: Redirect | None = None
 
 
 class PlanetStack(Stack):
@@ -163,6 +184,12 @@ class PlanetStack(Stack):
 
         _add_alarms(self, job, settings.alarm_email)
 
+        if settings.redirect:
+            redirect = _redirect_distribution(self, settings.redirect)
+            CfnOutput(
+                self, "RedirectDistributionDomainName", value=redirect.distribution_domain_name
+            )
+
         site_host = settings.domain.names[0] if settings.domain else None
         CfnOutput(
             self, "SiteUrl", value=f"https://{site_host or distribution.distribution_domain_name}"
@@ -212,6 +239,53 @@ def _custom_domain(scope: Construct, domain: CustomDomain | None) -> dict[str, o
             scope, "Certificate", domain.certificate_arn
         ),
     }
+
+
+def _redirect_distribution(scope: Construct, redirect: Redirect) -> cloudfront.Distribution:
+    """A distribution whose viewer-request function answers every request with
+    a 301 to the target, so the origin is never contacted.
+
+    Plain HTTP is allowed so an http:// request is redirected in one hop,
+    straight to the target, instead of first to https:// on the same name.
+    """
+    target_host = urlparse(redirect.target).hostname
+    if not target_host:
+        raise ValueError(f"redirect target is not an absolute URL: {redirect.target!r}")
+    response = {
+        "statusCode": 301,
+        "statusDescription": "Moved Permanently",
+        "headers": {"location": {"value": redirect.target}},
+    }
+    function = cloudfront.Function(
+        scope,
+        "RedirectFunction",
+        comment=f"301 to {redirect.target}",
+        runtime=cloudfront.FunctionRuntime.JS_2_0,
+        code=cloudfront.FunctionCode.from_inline(
+            f"function handler(event) {{ return {json.dumps(response)}; }}"
+        ),
+    )
+    return cloudfront.Distribution(
+        scope,
+        "RedirectDistribution",
+        comment=f"Redirect to {redirect.target}",
+        http_version=cloudfront.HttpVersion.HTTP2_AND_3,
+        domain_names=list(redirect.names),
+        certificate=acm.Certificate.from_certificate_arn(
+            scope, "RedirectCertificate", redirect.certificate_arn
+        ),
+        default_behavior=cloudfront.BehaviorOptions(
+            # Required, but never contacted: the function answers first.
+            origin=origins.HttpOrigin(target_host),
+            viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.ALLOW_ALL,
+            cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+            function_associations=[
+                cloudfront.FunctionAssociation(
+                    function=function, event_type=cloudfront.FunctionEventType.VIEWER_REQUEST
+                )
+            ],
+        ),
+    )
 
 
 def _add_alarms(scope: Construct, job: lambda_.IFunction, alarm_email: str) -> None:
